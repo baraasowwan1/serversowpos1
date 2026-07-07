@@ -7,7 +7,7 @@ router.use(authMiddleware);
 // Simple in-memory backed by MongoDB — using a generic collection
 import mongoose, { Schema } from "mongoose";
 
-let BranchModel: mongoose.Model<mongoose.Document>;
+let BranchModel: mongoose.Model<any>;
 try { BranchModel = mongoose.model("Branch"); }
 catch {
   BranchModel = mongoose.model("Branch", new Schema({
@@ -22,7 +22,7 @@ catch {
   }, { timestamps: true }));
 }
 
-let TerminalModel: mongoose.Model<mongoose.Document>;
+let TerminalModel: mongoose.Model<any>;
 try { TerminalModel = mongoose.model("Terminal"); }
 catch {
   TerminalModel = mongoose.model("Terminal", new Schema({
