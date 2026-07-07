@@ -100,10 +100,15 @@ router.post("/login", async (req: Request, res: Response) => {
 router.post("/admin", async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body as { email: string; password: string };
-    const adminEmail = process.env["SUPER_ADMIN_EMAIL"];
+    const adminEmail = process.env["SUPER_ADMIN_EMAIL"] || "superadmin@sowwanjo.online";
     const adminPass  = process.env["SUPER_ADMIN_PASSWORD"];
 
-    if (!email || !password || email !== adminEmail || password !== adminPass) {
+    // نقبل: الإيميل الكامل أو "superadmin" فقط
+    const adminUsername = adminEmail.split("@")[0]; // "superadmin"
+    const emailMatch = email === adminEmail || email === adminUsername;
+    const passMatch  = password === adminPass;
+
+    if (!email || !password || !emailMatch || !passMatch) {
       return res.status(401).json({ error: "بيانات المدير العام غير صحيحة" });
     }
 
