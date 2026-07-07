@@ -46,8 +46,10 @@ mongoose.connect(MONGODB_URI)
   .then(() => console.log(`✅ MongoDB connected: ${mongoose.connection.name}`))
   .catch(err => { console.error("❌ MongoDB connection failed:", err.message); process.exit(1); });
 
-mongoose.connection.on("disconnected", () => console.log("⚠️  MongoDB disconnected"));
-mongoose.connection.on("reconnected", () => console.log("✅ MongoDB reconnected"));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(mongoose.connection as any).on("disconnected", () => console.log("⚠️  MongoDB disconnected"));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(mongoose.connection as any).on("reconnected", () => console.log("✅ MongoDB reconnected"));
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 import authRoutes      from "./routes/auth";
@@ -59,14 +61,15 @@ import inventoryRoutes from "./routes/inventory";
 import reportRoutes    from "./routes/reports";
 import planRoutes      from "./routes/plans";
 
-app.use("/api/auth",      authRoutes);
-app.use("/api/stores",    storeRoutes);
-app.use("/api/products",  productRoutes);
-app.use("/api/sales",     saleRoutes);
-app.use("/api/customers", customerRoutes);
-app.use("/api/inventory", inventoryRoutes);
-app.use("/api/reports",   reportRoutes);
-app.use("/api/plans",     planRoutes);
+app.use("/api/auth",                   authRoutes);
+app.use("/api/stores",                 storeRoutes);
+app.use("/api/super-admin/stores",     storeRoutes);  // alias for clarity
+app.use("/api/products",               productRoutes);
+app.use("/api/sales",                  saleRoutes);
+app.use("/api/customers",              customerRoutes);
+app.use("/api/inventory",              inventoryRoutes);
+app.use("/api/reports",                reportRoutes);
+app.use("/api/plans",                  planRoutes);
 
 // ── Health Check ─────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({
