@@ -1,6 +1,5 @@
 /**
  * JWT Authentication Middleware
- * يتحقق من صحة التوكن ويضيف بيانات المتجر للطلب
  */
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
@@ -8,6 +7,7 @@ import { Store } from "../models/index";
 
 interface JWTPayload { storeId?: string; isSuperAdmin?: boolean; email: string; }
 
+// AuthRequest extends Request fully — fixes body/params/query errors
 export interface AuthRequest extends Request {
   store?: { id: string; nameAr: string; plan: string; status: string };
   isSuperAdmin?: boolean;
@@ -30,7 +30,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     const store = await Store.findById(decoded.storeId).select("nameAr plan status expiresAt");
     if (!store) return res.status(401).json({ error: "المتجر غير موجود" });
     if (store.status === "suspended") return res.status(403).json({ error: "حسابك موقوف، تواصل مع الدعم" });
-    if (new Date(store["expiresAt"]) < new Date()) {
+    if (store.expiresAt && new Date(store.expiresAt) < new Date()) {
       await Store.findByIdAndUpdate(decoded.storeId, { status: "expired" });
       return res.status(403).json({ error: "انتهت صلاحية اشتراكك، جدد للاستمرار" });
     }
@@ -47,8 +47,7 @@ export const superAdminOnly = (req: AuthRequest, res: Response, next: NextFuncti
   next();
 };
 
-// تأكد أن الاستعلام دائماً مقيد بـ storeId — Multi-Tenant Safety
-export const scopeToStore = (req: AuthRequest) => {
+export const scopeToStore = (req: AuthRequest): { storeId: string } => {
   if (!req.store?.id) throw new Error("Store scope required");
   return { storeId: req.store.id };
 };
