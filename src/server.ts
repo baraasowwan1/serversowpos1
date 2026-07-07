@@ -60,16 +60,30 @@ import customerRoutes  from "./routes/customers";
 import inventoryRoutes from "./routes/inventory";
 import reportRoutes    from "./routes/reports";
 import planRoutes      from "./routes/plans";
+import expenseRoutes   from "./routes/expenses";
+import branchRoutes    from "./routes/branches";
+import userRoutes      from "./routes/users";
+import settingsRoutes  from "./routes/settings";
+import supplierRoutes  from "./routes/suppliers";
+import purchaseRoutes  from "./routes/purchases";
+import returnRoutes    from "./routes/returns";
 
 app.use("/api/auth",                   authRoutes);
 app.use("/api/stores",                 storeRoutes);
-app.use("/api/super-admin/stores",     storeRoutes);  // alias for clarity
+app.use("/api/super-admin/stores",     storeRoutes);
 app.use("/api/products",               productRoutes);
 app.use("/api/sales",                  saleRoutes);
 app.use("/api/customers",              customerRoutes);
 app.use("/api/inventory",              inventoryRoutes);
 app.use("/api/reports",                reportRoutes);
 app.use("/api/plans",                  planRoutes);
+app.use("/api/expenses",               expenseRoutes);
+app.use("/api/branches",               branchRoutes);
+app.use("/api/users",                  userRoutes);
+app.use("/api/settings",              settingsRoutes);
+app.use("/api/suppliers",              supplierRoutes);
+app.use("/api/purchases",              purchaseRoutes);
+app.use("/api/returns",                returnRoutes);
 
 // ── Health Check ─────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({
