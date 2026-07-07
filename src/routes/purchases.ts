@@ -5,7 +5,7 @@ import { authMiddleware, AuthRequest, scopeToStore } from "../middleware/auth";
 const router = Router();
 router.use(authMiddleware);
 
-let PurchaseModel: mongoose.Model<mongoose.Document>;
+let PurchaseModel: mongoose.Model<any>;
 try { PurchaseModel = mongoose.model("Purchase"); }
 catch {
   PurchaseModel = mongoose.model("Purchase", new Schema({
