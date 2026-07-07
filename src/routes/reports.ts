@@ -72,7 +72,7 @@ router.get("/inventory", async (req: AuthRequest, res: Response) => {
 // تقرير الضريبة
 router.get("/tax", async (req: AuthRequest, res: Response) => {
   const scope = scopeToStore(req);
-  const { month } = req.query;
+  const { month } = req.query as { month?: string };
   const from = month ? new Date(`${month}-01`) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const to = new Date(from); to.setMonth(to.getMonth() + 1);
 
