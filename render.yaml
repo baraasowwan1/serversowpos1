@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: sowwanjo-pos-api
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: FRONTEND_URL
+        value: https://pos.sowwanjo.online
+      - key: DEFAULT_VAT_RATE
+        value: "0.16"
+      - key: DEFAULT_CURRENCY
+        value: JOD
+      - key: DEFAULT_TRIAL_DAYS
+        value: "14"
