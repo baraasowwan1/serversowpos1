@@ -13,7 +13,8 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { Store, User } from "../models/index";
-import { authMiddleware, superAdminOnly } from "../middleware/auth";
+import { authMiddleware, superAdminOnly, AuthRequest } from "../middleware/auth";
+import { logAudit } from "./audit";
 
 const router = Router();
 router.use(authMiddleware, superAdminOnly);
@@ -88,6 +89,7 @@ router.post("/", async (req: Request, res: Response) => {
 
     console.log(`✅ Store created: ${store.nameAr} (${store._id})`);
     console.log(`✅ Owner user created: ${user.email} (${user._id})`);
+    logAudit({ req: req as AuthRequest, action: "إنشاء متجر", category: "store", target: store.nameAr, newValues: { plan, city } });
 
     return res.status(201).json({
       store: { ...store.toObject(), id: store._id.toString() },
