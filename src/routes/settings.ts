@@ -5,6 +5,7 @@ import { Router, Response } from "express";
 import { Model } from "mongoose";
 import mongoose, { Schema } from "mongoose";
 import { authMiddleware, AuthRequest, scopeToStore } from "../middleware/auth";
+import { Store } from "../models/index";
 
 const router = Router();
 router.use(authMiddleware);
@@ -26,6 +27,12 @@ const settingsSchema = new Schema({
   printTax:     { type: Boolean, default: true },
   printPhone:   { type: Boolean, default: true },
   printBarcode: { type: Boolean, default: false },
+  // White-label branding
+  appName:        { type: String, default: "" },
+  primaryColor:   { type: String, default: "" },
+  logoUrl:        { type: String, default: "" },
+  iconUrl:        { type: String, default: "" },
+  receiptLogoUrl: { type: String, default: "" },
 }, { timestamps: true });
 
 const SettingsModel: AnyMongooseModel =
@@ -46,7 +53,8 @@ router.put("/", async (req: AuthRequest, res: Response) => {
   const scope = scopeToStore(req);
   const allowed = [
     "storeName","phone","address","language","receiptLang","currency",
-    "taxRate","paperSize","printCopies","printLogo","printTax","printPhone","printBarcode"
+    "taxRate","paperSize","printCopies","printLogo","printTax","printPhone","printBarcode",
+    "appName","primaryColor","logoUrl","iconUrl","receiptLogoUrl",
   ];
   const updates = Object.fromEntries(
     Object.entries(req.body).filter(([k]) => allowed.includes(k))
@@ -56,6 +64,18 @@ router.put("/", async (req: AuthRequest, res: Response) => {
     { $set: updates },
     { new: true, upsert: true }
   );
+
+  // Sync branding fields back to Store document for login response
+  const brandingUpdates: Record<string, string> = {};
+  if ("appName"      in updates) brandingUpdates["appName"]      = updates["appName"] as string;
+  if ("primaryColor" in updates) brandingUpdates["primaryColor"] = updates["primaryColor"] as string;
+  if ("logoUrl"      in updates) brandingUpdates["logoUrl"]      = updates["logoUrl"] as string;
+  if ("iconUrl"      in updates) brandingUpdates["iconUrl"]      = updates["iconUrl"] as string;
+  if ("receiptLogoUrl" in updates) brandingUpdates["receiptLogoUrl"] = updates["receiptLogoUrl"] as string;
+  if (Object.keys(brandingUpdates).length > 0) {
+    await Store.findByIdAndUpdate(scope.storeId, { $set: brandingUpdates });
+  }
+
   res.json(settings);
 });
 
