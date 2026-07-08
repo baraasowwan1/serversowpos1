@@ -69,6 +69,9 @@ import supplierRoutes  from "./routes/suppliers";
 import purchaseRoutes  from "./routes/purchases";
 import returnRoutes        from "./routes/returns";
 import announcementRoutes  from "./routes/announcements";
+import printMaterialRoutes from "./routes/print-materials";
+import printJobRoutes      from "./routes/print-jobs";
+import printPriceRoutes    from "./routes/print-price-lists";
 import ticketRoutes        from "./routes/tickets";
 import saSettingsRoutes    from "./routes/sa-settings";
 import auditRoutes         from "./routes/audit";
@@ -93,6 +96,9 @@ app.use("/api/announcements",          announcementRoutes);
 app.use("/api/tickets",                ticketRoutes);
 app.use("/api/super-admin/settings",   saSettingsRoutes);
 app.use("/api/audit",                  auditRoutes);
+app.use("/api/print-materials",        printMaterialRoutes);
+app.use("/api/print-jobs",             printJobRoutes);
+app.use("/api/print-price-lists",      printPriceRoutes);
 
 // ── Health Check ─────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({
