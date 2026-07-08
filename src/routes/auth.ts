@@ -10,6 +10,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { User, Store } from "../models/index";
 import { authMiddleware, AuthRequest } from "../middleware/auth";
+import { logAudit } from "./audit";
 
 const router = Router();
 const secret = (): string => process.env["JWT_SECRET"] || "fallback-secret";
@@ -68,7 +69,13 @@ router.post("/login", async (req: Request, res: Response) => {
       { expiresIn: expires() } as object
     );
 
-    // 7. إرجاع token + بيانات المتجر
+    // 7. Log audit event
+    const augReq = req as AuthRequest;
+    augReq.store = { id: store._id.toString(), nameAr: store.nameAr, plan: store.plan, status: store.status };
+    augReq.userId = user._id.toString();
+    logAudit({ req: augReq, action: "تسجيل دخول", category: "login", target: user.email });
+
+    // 8. إرجاع token + بيانات المتجر
     return res.json({
       token,
       user: {
@@ -117,6 +124,10 @@ router.post("/admin", async (req: Request, res: Response) => {
       secret(),
       { expiresIn: expires() } as object
     );
+
+    const augReq = req as AuthRequest;
+    augReq.isSuperAdmin = true;
+    logAudit({ req: augReq, action: "تسجيل دخول مدير عام", category: "login", target: email });
 
     return res.json({ token, role: "superadmin" });
   } catch (err) {
