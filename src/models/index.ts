@@ -13,6 +13,13 @@ export interface IStore extends Document {
   plan: string; taxNo?: string;
   vatRate: number; currency: string; language: string;
   expiresAt: Date; createdAt: Date; updatedAt: Date;
+  // White-label branding
+  appName?: string;
+  primaryColor?: string;
+  logoUrl?: string;
+  iconUrl?: string;
+  splashLogoUrl?: string;
+  receiptLogoUrl?: string;
 }
 const StoreSchema = new Schema<IStore>({
   nameAr:   { type: String, required: true },
@@ -29,6 +36,13 @@ const StoreSchema = new Schema<IStore>({
   currency: { type: String, default: "JOD" },
   language: { type: String, default: "ar" },
   expiresAt:{ type: Date, default: () => new Date(Date.now() + 14 * 86400000) },
+  // White-label branding
+  appName:        { type: String, default: "" },
+  primaryColor:   { type: String, default: "" },
+  logoUrl:        { type: String, default: "" },
+  iconUrl:        { type: String, default: "" },
+  splashLogoUrl:  { type: String, default: "" },
+  receiptLogoUrl: { type: String, default: "" },
 }, { timestamps: true });
 export const Store = mongoose.model<IStore>("Store", StoreSchema);
 
