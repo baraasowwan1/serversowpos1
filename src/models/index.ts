@@ -20,6 +20,8 @@ export interface IStore extends Document {
   iconUrl?: string;
   splashLogoUrl?: string;
   receiptLogoUrl?: string;
+  // Category-specific feature flags (set by migration, overridable by SA)
+  openFoodFactsEnabled?: boolean;
 }
 const StoreSchema = new Schema<IStore>({
   nameAr:   { type: String, required: true },
@@ -43,6 +45,7 @@ const StoreSchema = new Schema<IStore>({
   iconUrl:        { type: String, default: "" },
   splashLogoUrl:  { type: String, default: "" },
   receiptLogoUrl: { type: String, default: "" },
+  openFoodFactsEnabled: { type: Boolean, default: false },
 }, { timestamps: true });
 export const Store = mongoose.model<IStore>("Store", StoreSchema);
 
