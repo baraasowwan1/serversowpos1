@@ -26,7 +26,7 @@ export interface IStore extends Document {
 const StoreSchema = new Schema<IStore>({
   nameAr:   { type: String, required: true },
   nameEn:   { type: String, default: "" },
-  category: { type: String, required: true, enum: ["supermarket","clothing","cafe","electronics","barber"] },
+  category: { type: String, required: true, enum: ["supermarket","clothing","cafe","electronics","barber","print_shop"] },
   owner:    { type: String, required: true },
   email:    { type: String, required: true, unique: true, lowercase: true, trim: true },
   phone:    { type: String, default: "" },
@@ -203,3 +203,142 @@ const AuditLogSchema = new Schema<IAuditLog>({
   ip:      String, device: String,
 }, { timestamps: true });
 export const AuditLog = mongoose.model<IAuditLog>("AuditLog", AuditLogSchema);
+
+// ── PrintMaterial (مواد الطباعة) ───────────────────────────────────────────────
+export interface IPrintMaterial extends Document {
+  storeId:    Types.ObjectId;
+  branchId?:  Types.ObjectId;
+  name:       string;
+  type:       string;       // sticker_roll | vinyl | banner | flex | paper | ink | lamination | other
+  unit:       string;       // meter | sqm | roll | sheet | piece | liter | box
+  rollWidth?: number;       // meters
+  rollLength?: number;      // meters
+  totalArea?: number;       // sqm (auto-calculated for rolls)
+  usedArea:   number;       // sqm consumed so far
+  costPerUnit: number;      // JOD per unit
+  supplier?:  string;
+  minStock:   number;       // low-stock alert threshold
+  status:     "active" | "low" | "out";
+  createdBy?: Types.ObjectId;
+}
+const PrintMaterialSchema = new Schema<IPrintMaterial>({
+  storeId:     { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
+  branchId:    { type: Schema.Types.ObjectId, ref: "Branch", default: null },
+  name:        { type: String, required: true },
+  type:        { type: String, default: "other" },
+  unit:        { type: String, default: "sqm" },
+  rollWidth:   { type: Number, default: 0 },
+  rollLength:  { type: Number, default: 0 },
+  totalArea:   { type: Number, default: 0 },
+  usedArea:    { type: Number, default: 0 },
+  costPerUnit: { type: Number, default: 0 },
+  supplier:    { type: String, default: "" },
+  minStock:    { type: Number, default: 5 },
+  status:      { type: String, default: "active", enum: ["active","low","out"] },
+  createdBy:   { type: Schema.Types.ObjectId, ref: "User" },
+}, { timestamps: true });
+PrintMaterialSchema.pre("save", function () {
+  if (this.rollWidth && this.rollLength) {
+    this.totalArea = this.rollWidth * this.rollLength;
+  }
+  const remaining = (this.totalArea || 0) - this.usedArea;
+  this.status = remaining <= 0 ? "out" : remaining <= this.minStock ? "low" : "active";
+});
+export const PrintMaterial = mongoose.model<IPrintMaterial>("PrintMaterial", PrintMaterialSchema);
+
+// ── PrintPriceList (قوائم أسعار الطباعة) ───────────────────────────────────────
+export interface IPrintPriceList extends Document {
+  storeId:     Types.ObjectId;
+  name:        string;       // e.g. "ستيكر لصق" / "بانر"
+  pricingType: string;       // sqm | meter | piece | sheet | job | design | installation | cutting | lamination
+  pricePerUnit: number;      // JOD
+  minCharge?:  number;
+  notes?:      string;
+  active:      boolean;
+}
+const PrintPriceListSchema = new Schema<IPrintPriceList>({
+  storeId:      { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
+  name:         { type: String, required: true },
+  pricingType:  { type: String, default: "sqm" },
+  pricePerUnit: { type: Number, required: true },
+  minCharge:    { type: Number, default: 0 },
+  notes:        { type: String, default: "" },
+  active:       { type: Boolean, default: true },
+}, { timestamps: true });
+export const PrintPriceList = mongoose.model<IPrintPriceList>("PrintPriceList", PrintPriceListSchema);
+
+// ── PrintJob (طلبات الإنتاج) ────────────────────────────────────────────────────
+export type PrintJobStatus =
+  "new" | "waiting_design" | "design_ready" | "waiting_approval" |
+  "approved" | "printing" | "cutting" | "finishing" | "ready" | "delivered" | "cancelled";
+
+export interface IPrintJob extends Document {
+  storeId:      Types.ObjectId;
+  branchId?:    Types.ObjectId;
+  jobNo:        string;
+  customer:     string;
+  phone?:       string;
+  items:        {
+    service:    string;
+    material?:  string;
+    materialId?: Types.ObjectId;
+    width:      number;
+    height:     number;
+    qty:        number;
+    area:       number;       // width × height × qty
+    pricePerSqm: number;
+    subtotal:   number;
+    wastePercent: number;
+    deductedArea: number;     // area + waste
+  }[];
+  designFee:    number;
+  cuttingFee:   number;
+  laminationFee: number;
+  installFee:   number;
+  discount:     number;
+  tax:          number;
+  total:        number;
+  status:       PrintJobStatus;
+  statusHistory: { status: PrintJobStatus; at: Date; by?: string }[];
+  deadline?:    Date;
+  assignedTo?:  string;
+  notes?:       string;
+  files:        string[];     // cloud storage URLs
+  createdBy?:   Types.ObjectId;
+}
+const PrintJobSchema = new Schema<IPrintJob>({
+  storeId:       { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
+  branchId:      { type: Schema.Types.ObjectId, ref: "Branch", default: null },
+  jobNo:         { type: String, required: true },
+  customer:      { type: String, required: true },
+  phone:         { type: String, default: "" },
+  items:         [{
+    service:     String,
+    material:    String,
+    materialId:  { type: Schema.Types.ObjectId, ref: "PrintMaterial" },
+    width:       { type: Number, default: 0 },
+    height:      { type: Number, default: 0 },
+    qty:         { type: Number, default: 1 },
+    area:        { type: Number, default: 0 },
+    pricePerSqm: { type: Number, default: 0 },
+    subtotal:    { type: Number, default: 0 },
+    wastePercent:{ type: Number, default: 0 },
+    deductedArea:{ type: Number, default: 0 },
+  }],
+  designFee:     { type: Number, default: 0 },
+  cuttingFee:    { type: Number, default: 0 },
+  laminationFee: { type: Number, default: 0 },
+  installFee:    { type: Number, default: 0 },
+  discount:      { type: Number, default: 0 },
+  tax:           { type: Number, default: 0 },
+  total:         { type: Number, default: 0 },
+  status:        { type: String, default: "new" },
+  statusHistory: [{ status: String, at: { type: Date, default: Date.now }, by: String }],
+  deadline:      { type: Date },
+  assignedTo:    { type: String, default: "" },
+  notes:         { type: String, default: "" },
+  files:         [String],
+  createdBy:     { type: Schema.Types.ObjectId, ref: "User" },
+}, { timestamps: true });
+PrintJobSchema.index({ storeId: 1, jobNo: 1 }, { unique: true });
+export const PrintJob = mongoose.model<IPrintJob>("PrintJob", PrintJobSchema);
