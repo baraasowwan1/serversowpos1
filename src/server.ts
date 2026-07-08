@@ -12,6 +12,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
+import { runMigrations } from "./migrations/runner";
 
 dotenv.config();
 
@@ -20,11 +21,8 @@ const app = express();
 // ── Security Middleware ──────────────────────────────────────────────────────
 app.use(helmet());
 app.use(cors({
-  origin: [
-    process.env["FRONTEND_URL"] || "http://localhost:5173",
-    "https://pos.sowwanjo.online",
-    "http://localhost:5173",
-  ],
+  // Allow any origin — JWT is the security gate, not CORS
+  origin: true,
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -43,7 +41,10 @@ const MONGODB_URI = process.env["MONGODB_URI"];
 if (!MONGODB_URI) { console.error("❌ MONGODB_URI is not set"); process.exit(1); }
 
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log(`✅ MongoDB connected: ${mongoose.connection.name}`))
+  .then(async () => {
+    console.log(`✅ MongoDB connected: ${mongoose.connection.name}`);
+    await runMigrations();
+  })
   .catch(err => { console.error("❌ MongoDB connection failed:", err.message); process.exit(1); });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
