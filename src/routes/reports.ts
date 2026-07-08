@@ -4,7 +4,7 @@
  */
 import { Router, Response } from "express";
 import mongoose from "mongoose";
-import { Sale, Product, Expense } from "../models/index";
+import { Sale, Product, Expense, Customer } from "../models/index";
 import { authMiddleware, AuthRequest, scopeToStore } from "../middleware/auth";
 
 const router = Router();
@@ -90,20 +90,24 @@ router.get("/summary", async (req: AuthRequest, res: Response) => {
   const today = new Date(); today.setHours(0,0,0,0);
   const month = new Date(today.getFullYear(), today.getMonth(), 1);
 
-  const [todayR, monthR, totalR, products, expenses] = await Promise.all([
+  const [todayR, monthR, totalR, products, expenses, customers, lowStockCount] = await Promise.all([
     Sale.aggregate([{ $match: { storeId: oid, createdAt: { $gte: today }, status: "completed" } }, { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } }]),
     Sale.aggregate([{ $match: { storeId: oid, createdAt: { $gte: month }, status: "completed" } }, { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } }]),
     Sale.countDocuments({ storeId: oid, status: "completed" }),
     Product.countDocuments({ storeId: scope.storeId }),
     Expense.aggregate([{ $match: { storeId: oid, createdAt: { $gte: month } } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
+    Customer.countDocuments({ storeId: scope.storeId }),
+    Product.countDocuments({ storeId: scope.storeId, $expr: { $lte: ["$stock", "$minStock"] } }),
   ]);
 
   res.json({
-    today: todayR[0] || { total: 0, count: 0 },
-    month: monthR[0] || { total: 0, count: 0 },
-    totalSales: totalR,
-    totalProducts: products,
-    monthExpenses: expenses[0]?.total || 0,
+    today:          todayR[0] || { total: 0, count: 0 },
+    month:          monthR[0] || { total: 0, count: 0 },
+    totalSales:     totalR,
+    totalProducts:  products,
+    monthExpenses:  expenses[0]?.total || 0,
+    totalCustomers: customers,
+    lowStock:       lowStockCount,
   });
 });
 
