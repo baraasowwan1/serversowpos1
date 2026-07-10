@@ -16,6 +16,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 import * as m001 from "./001-open-food-facts-field.migration";
 import * as m002 from "./002-print-shop-category.migration";
+import * as m003 from "./003-flower-shop-category.migration";
 
 // ── Applied Migration record ──────────────────────────────────────────────────
 interface IAppliedMigration extends Document {
@@ -36,6 +37,7 @@ const AppliedMigration = mongoose.model<IAppliedMigration>("AppliedMigration", A
 const MIGRATIONS: { name: string; up: () => Promise<string> }[] = [
   m001,
   m002,
+  m003,
 ];
 
 // ── Runner ────────────────────────────────────────────────────────────────────
