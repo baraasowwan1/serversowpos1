@@ -70,6 +70,7 @@ import purchaseRoutes  from "./routes/purchases";
 import returnRoutes        from "./routes/returns";
 import announcementRoutes  from "./routes/announcements";
 import printMaterialRoutes from "./routes/print-materials";
+import flowerOrderRoutes   from "./routes/flower-orders";
 import printJobRoutes      from "./routes/print-jobs";
 import printPriceRoutes    from "./routes/print-price-lists";
 import ticketRoutes        from "./routes/tickets";
@@ -99,6 +100,7 @@ app.use("/api/audit",                  auditRoutes);
 app.use("/api/print-materials",        printMaterialRoutes);
 app.use("/api/print-jobs",             printJobRoutes);
 app.use("/api/print-price-lists",      printPriceRoutes);
+app.use("/api/flower-orders",          flowerOrderRoutes);
 
 // ── Health Check ─────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({
