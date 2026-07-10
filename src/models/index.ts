@@ -26,7 +26,7 @@ export interface IStore extends Document {
 const StoreSchema = new Schema<IStore>({
   nameAr:   { type: String, required: true },
   nameEn:   { type: String, default: "" },
-  category: { type: String, required: true, enum: ["supermarket","clothing","cafe","electronics","barber","print_shop"] },
+  category: { type: String, required: true, enum: ["supermarket","clothing","cafe","electronics","barber","print_shop","flower_shop"] },
   owner:    { type: String, required: true },
   email:    { type: String, required: true, unique: true, lowercase: true, trim: true },
   phone:    { type: String, default: "" },
@@ -342,3 +342,75 @@ const PrintJobSchema = new Schema<IPrintJob>({
 }, { timestamps: true });
 PrintJobSchema.index({ storeId: 1, jobNo: 1 }, { unique: true });
 export const PrintJob = mongoose.model<IPrintJob>("PrintJob", PrintJobSchema);
+
+// ── FlowerOrder (طلبات الزهور والتوصيل) ───────────────────────────────────────
+export type FlowerOrderStatus = "new" | "preparing" | "ready" | "out_for_delivery" | "delivered" | "cancelled";
+
+export interface IFlowerOrder extends Document {
+  storeId:       Types.ObjectId;
+  branchId?:     Types.ObjectId;
+  orderNo:       string;
+  customer:      string;
+  customerPhone: string;
+  occasion:      string;
+  deliveryType:  "pickup" | "delivery";
+  deliveryDate?: Date;
+  deliveryTime?: string;
+  recipientName?: string;
+  recipientPhone?: string;
+  deliveryAddress?: string;
+  deliveryArea?:   string;
+  deliveryFee:   number;
+  cardMessage?:  string;
+  assignedTo?:   string;
+  notes?:        string;
+  items: {
+    productId?:  Types.ObjectId;
+    name:        string;
+    qty:         number;
+    unitPrice:   number;
+    subtotal:    number;
+  }[];
+  discount:      number;
+  tax:           number;
+  total:         number;
+  status:        FlowerOrderStatus;
+  statusHistory: { status: FlowerOrderStatus; at: Date; by?: string }[];
+  createdBy?:    Types.ObjectId;
+}
+
+const FlowerOrderSchema = new Schema<IFlowerOrder>({
+  storeId:        { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
+  branchId:       { type: Schema.Types.ObjectId, ref: "Branch", default: null },
+  orderNo:        { type: String, required: true },
+  customer:       { type: String, required: true },
+  customerPhone:  { type: String, default: "" },
+  occasion:       { type: String, default: "custom" },
+  deliveryType:   { type: String, default: "pickup", enum: ["pickup","delivery"] },
+  deliveryDate:   { type: Date },
+  deliveryTime:   { type: String, default: "" },
+  recipientName:  { type: String, default: "" },
+  recipientPhone: { type: String, default: "" },
+  deliveryAddress:{ type: String, default: "" },
+  deliveryArea:   { type: String, default: "" },
+  deliveryFee:    { type: Number, default: 0 },
+  cardMessage:    { type: String, default: "" },
+  assignedTo:     { type: String, default: "" },
+  notes:          { type: String, default: "" },
+  items: [{
+    productId:  { type: Schema.Types.ObjectId, ref: "Product" },
+    name:       String,
+    qty:        { type: Number, default: 1 },
+    unitPrice:  { type: Number, default: 0 },
+    subtotal:   { type: Number, default: 0 },
+  }],
+  discount:      { type: Number, default: 0 },
+  tax:           { type: Number, default: 0 },
+  total:         { type: Number, default: 0 },
+  status:        { type: String, default: "new" },
+  statusHistory: [{ status: String, at: { type: Date, default: Date.now }, by: String }],
+  createdBy:     { type: Schema.Types.ObjectId, ref: "User" },
+}, { timestamps: true });
+
+FlowerOrderSchema.index({ storeId: 1, orderNo: 1 }, { unique: true });
+export const FlowerOrder = mongoose.model<IFlowerOrder>("FlowerOrder", FlowerOrderSchema);
