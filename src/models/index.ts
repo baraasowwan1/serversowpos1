@@ -113,10 +113,16 @@ export interface ISale extends Document {
   invoiceNo:   string;
   items:       { productId: string; nameAr: string; qty: number; unitPrice: number; discount: number; total: number }[];
   subtotal:    number; discountAmt: number; taxAmt: number; total: number;
-  payMethod:   "cash" | "click" | "split";
+  payMethod:   "cash" | "click" | "split" | "cliq" | "card";
   cashIn?:     number; change?: number;
+  cliqRef?:    string; cliqSender?: string; cardRef?: string;
+  customerId?: string; customerName?: string; customerPhone?: string;
   status:      "completed" | "refunded" | "held";
   cashier?:    string; branchId?: string; terminalId?: string;
+  // Offline sync fields
+  offlineOperationId?: string;  // UUID for idempotency
+  isOffline?:          boolean;
+  offlineCreatedAt?:   Date;
 }
 const SaleSchema = new Schema<ISale>({
   storeId:    { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
@@ -124,12 +130,18 @@ const SaleSchema = new Schema<ISale>({
   items:      [{ productId: String, nameAr: String, qty: Number, unitPrice: Number, discount: Number, total: Number }],
   subtotal:   Number, discountAmt: Number, taxAmt: Number,
   total:      { type: Number, required: true },
-  payMethod:  { type: String, enum: ["cash","click","split"], default: "cash" },
+  payMethod:  { type: String, enum: ["cash","click","split","cliq","card"], default: "cash" },
   cashIn:     Number, change: Number,
+  cliqRef:    String, cliqSender: String, cardRef: String,
+  customerId: String, customerName: String, customerPhone: String,
   status:     { type: String, default: "completed", enum: ["completed","refunded","held"] },
   cashier:    String, branchId: String, terminalId: String,
+  offlineOperationId: { type: String, index: true, sparse: true },
+  isOffline:          { type: Boolean, default: false },
+  offlineCreatedAt:   Date,
 }, { timestamps: true });
 SaleSchema.index({ storeId: 1, createdAt: -1 });
+SaleSchema.index({ storeId: 1, offlineOperationId: 1 }, { sparse: true });
 export const Sale = mongoose.model<ISale>("Sale", SaleSchema);
 
 // ── Customer ──────────────────────────────────────────────────────────────────
