@@ -183,6 +183,7 @@ export interface IPlan extends Document {
   maxBranches: number; maxUsers: number; maxProducts: number;
   maxInvoices: number; maxTerminals: number; storage: string;
   apiAccess: boolean; features: string[]; color: string; active: boolean;
+  badge?: string;
 }
 const PlanSchema = new Schema<IPlan>({
   nameAr:      { type: String, required: true },
@@ -198,6 +199,7 @@ const PlanSchema = new Schema<IPlan>({
   features:    [String],
   color:       { type: String, default: "#1D4ED8" },
   active:      { type: Boolean, default: true },
+  badge:       { type: String, default: "" },
 }, { timestamps: true });
 export const Plan = mongoose.model<IPlan>("Plan", PlanSchema);
 
