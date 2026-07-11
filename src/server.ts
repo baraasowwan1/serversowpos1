@@ -76,6 +76,7 @@ import printPriceRoutes    from "./routes/print-price-lists";
 import ticketRoutes        from "./routes/tickets";
 import saSettingsRoutes    from "./routes/sa-settings";
 import auditRoutes         from "./routes/audit";
+import syncRoutes          from "./routes/sync";
 
 app.use("/api/auth",                   authRoutes);
 app.use("/api/stores",                 storeRoutes);
@@ -101,6 +102,7 @@ app.use("/api/print-materials",        printMaterialRoutes);
 app.use("/api/print-jobs",             printJobRoutes);
 app.use("/api/print-price-lists",      printPriceRoutes);
 app.use("/api/flower-orders",          flowerOrderRoutes);
+app.use("/api/sync",                   syncRoutes);
 
 // ── Health Check ─────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({
