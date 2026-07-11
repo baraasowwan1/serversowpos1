@@ -2,6 +2,7 @@
  * Sales Routes — مسارات الفواتير
  */
 import { Router, Response } from "express";
+import mongoose from "mongoose";
 import { Sale, Product } from "../models/index";
 import { authMiddleware, AuthRequest, scopeToStore } from "../middleware/auth";
 
@@ -51,27 +52,33 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 
 // إحصائيات المبيعات
 router.get("/stats", async (req: AuthRequest, res: Response) => {
-  const scope = scopeToStore(req);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const month = new Date(today.getFullYear(), today.getMonth(), 1);
+  try {
+    const scope = scopeToStore(req);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const month = new Date(today.getFullYear(), today.getMonth(), 1);
+    // aggregate() bypasses Mongoose type-casting — must use ObjectId explicitly
+    const storeOid = new mongoose.Types.ObjectId(scope.storeId);
 
-  const [todaySales, monthSales, totalSales] = await Promise.all([
-    Sale.aggregate([
-      { $match: { storeId: scope.storeId, createdAt: { $gte: today }, status: "completed" } },
-      { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } }
-    ]),
-    Sale.aggregate([
-      { $match: { storeId: scope.storeId, createdAt: { $gte: month }, status: "completed" } },
-      { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } }
-    ]),
-    Sale.countDocuments({ storeId: scope.storeId, status: "completed" }),
-  ]);
+    const [todaySales, monthSales, totalSales] = await Promise.all([
+      Sale.aggregate([
+        { $match: { storeId: storeOid, createdAt: { $gte: today }, status: "completed" } },
+        { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } }
+      ]),
+      Sale.aggregate([
+        { $match: { storeId: storeOid, createdAt: { $gte: month }, status: "completed" } },
+        { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } }
+      ]),
+      Sale.countDocuments({ storeId: scope.storeId, status: "completed" }),
+    ]);
 
-  res.json({
-    today: todaySales[0] || { total: 0, count: 0 },
-    month: monthSales[0] || { total: 0, count: 0 },
-    totalSales,
-  });
+    res.json({
+      today: todaySales[0] || { total: 0, count: 0 },
+      month: monthSales[0] || { total: 0, count: 0 },
+      totalSales,
+    });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message || "خطأ في جلب الإحصائيات" });
+  }
 });
 
 export default router;
