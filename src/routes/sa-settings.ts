@@ -12,6 +12,26 @@ const sysSchema = new Schema({
 const SysSett: AnyMongooseModel =
   mongoose.models["SystemSetting"] || mongoose.model("SystemSetting", sysSchema);
 
+// Public safe branding fields (no auth required)
+const PUBLIC_BRANDING_KEYS = [
+  "platformName","platformShortName","logoUrl","iconUrl",
+  "primaryColor","secondaryColor","accentColor","sidebarStyle",
+  "loginTitle","loginSubtitle","supportEmail","supportPhone",
+  "websiteUrl","footerCopyright",
+];
+
+const publicRouter = Router();
+publicRouter.get("/", async (_req: Request, res: Response) => {
+  try {
+    const settings = await SysSett.find({ key: { $in: PUBLIC_BRANDING_KEYS } });
+    const obj: Record<string, unknown> = {};
+    settings.forEach((s: { key: string; value: unknown }) => { obj[s.key] = s.value; });
+    res.json(obj);
+  } catch { res.json({}); }
+});
+
+export { publicRouter as brandingPublicRouter };
+
 const router = Router();
 router.use(authMiddleware, superAdminOnly);
 
