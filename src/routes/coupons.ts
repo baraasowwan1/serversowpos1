@@ -1,6 +1,8 @@
 import { Router, Response } from "express";
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Model } from "mongoose";
 import { authMiddleware, AuthRequest, scopeToStore } from "../middleware/auth";
+
+type AnyMongooseModel = Model<any>;
 
 const couponSchema = new Schema({
   storeId:   { type: String, required: true, index: true },
@@ -16,7 +18,8 @@ const couponSchema = new Schema({
 
 couponSchema.index({ storeId: 1, code: 1 }, { unique: true });
 
-const Coupon = mongoose.models["Coupon"] || mongoose.model("Coupon", couponSchema);
+const Coupon: AnyMongooseModel =
+  mongoose.models["Coupon"] || mongoose.model("Coupon", couponSchema);
 
 const router = Router();
 router.use(authMiddleware);
