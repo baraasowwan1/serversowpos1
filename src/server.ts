@@ -19,7 +19,19 @@ dotenv.config();
 const app = express();
 
 // ── Security Middleware ──────────────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc:  ["'self'", "'unsafe-inline'"],
+      imgSrc:    ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+}));
 app.use(cors({
   // Allow any origin — JWT is the security gate, not CORS
   origin: true,
