@@ -11,7 +11,7 @@ router.use(authMiddleware);
 // جميع منتجات المتجر
 router.get("/", async (req: AuthRequest, res: Response) => {
   const scope = scopeToStore(req);
-  const { q, category } = req.query as { q?: string; category?: string };
+  const { q, category, limit: limitQ } = req.query as { q?: string; category?: string; limit?: string };
   const filter: Record<string, unknown> = { storeId: scope.storeId };
   if (category && category !== "الكل") filter["category"] = category;
   if (q) filter["$or"] = [
@@ -19,7 +19,11 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     { barcode: q },
     { sku: { $regex: q, $options: "i" } },
   ];
-  const products = await Product.find(filter).sort({ createdAt: -1 });
+  const limit = Math.min(parseInt(limitQ || "5000"), 5000);
+  const products = await Product.find(filter)
+    .sort({ category: 1, nameAr: 1 })
+    .limit(limit)
+    .lean();
   res.json(products);
 });
 
