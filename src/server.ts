@@ -79,6 +79,7 @@ import auditRoutes         from "./routes/audit";
 import syncRoutes          from "./routes/sync";
 import couponRoutes        from "./routes/coupons";
 import saStatsRoutes       from "./routes/sa-stats";
+import masterCatalogRoutes from "./routes/master-catalog";
 
 app.use("/api/auth",                   authRoutes);
 app.use("/api/stores",                 storeRoutes);
@@ -108,6 +109,7 @@ app.use("/api/flower-orders",          flowerOrderRoutes);
 app.use("/api/sync",                   syncRoutes);
 app.use("/api/coupons",                couponRoutes);
 app.use("/api/super-admin/stats",      saStatsRoutes);
+app.use("/api/master-catalog",         masterCatalogRoutes);
 
 // ── Health Check ─────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({
