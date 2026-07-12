@@ -21,6 +21,49 @@ import { initializeStoreFromCatalog } from "./master-catalog";
 const router = Router();
 router.use(authMiddleware, superAdminOnly);
 
+// ── GET /api/stores/all-users — SA يجلب جميع مستخدمي كل المتاجر ─────────────
+router.get("/all-users", async (req: Request, res: Response) => {
+  try {
+    const { q, storeId, role, page: pageQ, limit: limitQ } = req.query as { q?: string; storeId?: string; role?: string; page?: string; limit?: string };
+    const filter: Record<string, unknown> = {};
+    if (storeId) filter["storeId"] = storeId;
+    if (role)    filter["role"]    = role;
+    if (q)       filter["$or"] = [
+      { name:  { $regex: q, $options: "i" } },
+      { email: { $regex: q, $options: "i" } },
+      { phone: { $regex: q, $options: "i" } },
+    ];
+
+    const page  = Math.max(1, parseInt(pageQ  || "1"));
+    const limit = Math.min(100, parseInt(limitQ || "50"));
+    const skip  = (page - 1) * limit;
+    const total = await User.countDocuments(filter);
+    const users = await User.find(filter).select("-password").sort({ createdAt: -1 }).skip(skip).limit(limit).lean();
+
+    // Attach store name to each user
+    const storeIds = [...new Set(users.map(u => String(u.storeId)))];
+    const stores   = await Store.find({ _id: { $in: storeIds } }).select("nameAr _id").lean();
+    const storeMap = Object.fromEntries(stores.map(s => [String(s._id), (s as { nameAr: string }).nameAr]));
+
+    const result = users.map(u => ({
+      id:        String(u._id),
+      name:      (u as { name: string }).name,
+      email:     (u as { email: string }).email,
+      role:      (u as { role: string }).role,
+      phone:     (u as { phone?: string }).phone || "",
+      storeId:   String(u.storeId),
+      storeName: storeMap[String(u.storeId)] || "—",
+      status:    (u as { status?: string }).status || "active",
+      createdAt: (u as { createdAt?: Date }).createdAt?.toISOString().split("T")[0] || "",
+    }));
+
+    return res.json({ users: result, total, page, pages: Math.ceil(total / limit) });
+  } catch (err) {
+    console.error("all-users error:", err);
+    return res.status(500).json({ error: "خطأ في جلب المستخدمين" });
+  }
+});
+
 // ── GET /api/stores — جميع المتاجر ───────────────────────────────────────────
 router.get("/", async (_req: Request, res: Response) => {
   try {
