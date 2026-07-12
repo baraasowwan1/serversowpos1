@@ -193,6 +193,70 @@ router.get("/:id/users", async (req: Request, res: Response) => {
   }
 });
 
+// ── POST /api/stores/:id/users — SA يضيف مستخدم جديد للمتجر ──────────────────
+router.post("/:id/users", async (req: Request, res: Response) => {
+  try {
+    const storeId = req.params["id"];
+    const store = await Store.findById(storeId);
+    if (!store) return res.status(404).json({ error: "المتجر غير موجود" });
+
+    const { name, email, password, role, phone } = req.body as { name?: string; email?: string; password?: string; role?: string; phone?: string };
+    if (!name || !email || !password) return res.status(400).json({ error: "الاسم والبريد وكلمة المرور مطلوبة" });
+    if (password.length < 6) return res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
+
+    const normalEmail = email.toLowerCase().trim();
+    const exists = await User.findOne({ email: normalEmail });
+    if (exists) return res.status(409).json({ error: "هذا البريد الإلكتروني مستخدم بالفعل" });
+
+    const hashed = await bcrypt.hash(password, 12);
+    const user = await User.create({
+      storeId, name, email: normalEmail,
+      username: normalEmail.split("@")[0],
+      password: hashed,
+      role: role || "cashier",
+      phone: phone || "",
+      status: "active",
+    });
+    console.log(`✅ SA added user: ${normalEmail} (role=${role}) to store ${storeId}`);
+    return res.status(201).json({ id: user._id, name: (user as { name: string }).name, email: normalEmail, role: role || "cashier", phone: phone || "" });
+  } catch (err) {
+    return res.status(500).json({ error: "خطأ في إضافة المستخدم" });
+  }
+});
+
+// ── PUT /api/stores/:id/users/:uid — SA يعدّل بيانات مستخدم ──────────────────
+router.put("/:id/users/:uid", async (req: Request, res: Response) => {
+  try {
+    const { name, email, role, phone } = req.body as { name?: string; email?: string; role?: string; phone?: string };
+    const updates: Record<string, unknown> = {};
+    if (name)  updates["name"]  = name;
+    if (email) updates["email"] = email.toLowerCase().trim();
+    if (role)  updates["role"]  = role;
+    if (phone !== undefined) updates["phone"] = phone;
+
+    const updated = await User.findOneAndUpdate(
+      { _id: req.params["uid"], storeId: req.params["id"] },
+      updates, { new: true }
+    ).select("-password");
+    if (!updated) return res.status(404).json({ error: "المستخدم غير موجود" });
+    return res.json({ id: updated._id, name: (updated as { name: string }).name, email: (updated as { email: string }).email, role: (updated as { role: string }).role, phone: (updated as { phone?: string }).phone || "" });
+  } catch (err) {
+    return res.status(500).json({ error: "خطأ في تعديل المستخدم" });
+  }
+});
+
+// ── DELETE /api/stores/:id/users/:uid — SA يحذف مستخدم من المتجر ─────────────
+router.delete("/:id/users/:uid", async (req: Request, res: Response) => {
+  try {
+    const deleted = await User.findOneAndDelete({ _id: req.params["uid"], storeId: req.params["id"] });
+    if (!deleted) return res.status(404).json({ error: "المستخدم غير موجود" });
+    console.log(`✅ SA deleted user ${req.params["uid"]} from store ${req.params["id"]}`);
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ error: "خطأ في حذف المستخدم" });
+  }
+});
+
 // ── POST /api/stores/:id/users/:uid/reset-password — SA يغير كلمة مرور موظف ──
 router.post("/:id/users/:uid/reset-password", async (req: Request, res: Response) => {
   try {
