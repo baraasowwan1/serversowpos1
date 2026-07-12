@@ -64,12 +64,15 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 router.put("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const scope = scopeToStore(req);
-    const { name, phone, role, status } = req.body;
+    const { name, phone, role, status, password } = req.body;
     const validRoles = ["owner", "manager", "cashier", "inventory", "accountant"];
     const validStatuses = ["active", "suspended"];
     const update: Record<string, unknown> = { name, phone };
     if (role) update["role"] = validRoles.includes(role) ? role : "cashier";
     if (status) update["status"] = validStatuses.includes(status) ? status : "active";
+    if (password && typeof password === "string" && password.length >= 6) {
+      update["password"] = await bcrypt.hash(password, 10);
+    }
     const user = await User.findOneAndUpdate(
       { _id: req.params["id"], storeId: scope.storeId },
       update,
