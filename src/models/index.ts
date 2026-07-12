@@ -115,6 +115,7 @@ const ProductSchema = new Schema<IProduct>({
 }, { timestamps: true });
 ProductSchema.index({ storeId: 1, barcode: 1 });
 ProductSchema.index({ storeId: 1, sku: 1 });
+ProductSchema.index({ storeId: 1, category: 1, nameAr: 1 });
 ProductSchema.index({ masterCatalogRef: 1 }, { sparse: true });
 export const Product = mongoose.model<IProduct>("Product", ProductSchema);
 
