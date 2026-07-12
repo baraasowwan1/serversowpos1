@@ -1,7 +1,9 @@
 import { Router, Request, Response } from "express";
-import mongoose from "mongoose";
+import mongoose, { Model } from "mongoose";
 import { authMiddleware, superAdminOnly } from "../middleware/auth";
 import { Sale } from "../models";
+
+type AnyModel = Model<any>;
 
 const router = Router();
 router.use(authMiddleware, superAdminOnly);
@@ -61,7 +63,7 @@ router.get("/monthly", async (_req: Request, res: Response) => {
 // Total stores, revenue this month, active subscriptions
 router.get("/kpi", async (_req: Request, res: Response) => {
   try {
-    const Store = mongoose.model("Store");
+    const Store = mongoose.model("Store") as AnyModel;
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -88,9 +90,9 @@ router.get("/kpi", async (_req: Request, res: Response) => {
 // Full data export as JSON (for backup download)
 router.get("/export", async (_req: Request, res: Response) => {
   try {
-    const Store   = mongoose.model("Store");
-    const User    = mongoose.model("User");
-    const Product = mongoose.model("Product");
+    const Store   = mongoose.model("Store") as AnyModel;
+    const User    = mongoose.model("User") as AnyModel;
+    const Product = mongoose.model("Product") as AnyModel;
 
     const [stores, users, sales, products] = await Promise.all([
       Store.find().select("-__v").lean(),
