@@ -74,7 +74,7 @@ import flowerOrderRoutes   from "./routes/flower-orders";
 import printJobRoutes      from "./routes/print-jobs";
 import printPriceRoutes    from "./routes/print-price-lists";
 import ticketRoutes        from "./routes/tickets";
-import saSettingsRoutes    from "./routes/sa-settings";
+import saSettingsRoutes, { brandingPublicRouter } from "./routes/sa-settings";
 import auditRoutes         from "./routes/audit";
 import syncRoutes          from "./routes/sync";
 
@@ -97,6 +97,7 @@ app.use("/api/returns",                returnRoutes);
 app.use("/api/announcements",          announcementRoutes);
 app.use("/api/tickets",                ticketRoutes);
 app.use("/api/super-admin/settings",   saSettingsRoutes);
+app.use("/api/branding",               brandingPublicRouter); // public — no auth
 app.use("/api/audit",                  auditRoutes);
 app.use("/api/print-materials",        printMaterialRoutes);
 app.use("/api/print-jobs",             printJobRoutes);
