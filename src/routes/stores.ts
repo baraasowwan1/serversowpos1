@@ -133,10 +133,12 @@ router.put("/:id", async (req: Request, res: Response) => {
 // ── POST /api/stores/:id/reset-password — إعادة تعيين كلمة المرور ────────────
 router.post("/:id/reset-password", async (req: Request, res: Response) => {
   try {
-    const newRawPass = `Store@${Math.floor(Math.random() * 900000) + 100000}!`;
-    const newHash = await bcrypt.hash(newRawPass, 12);
+    const { newPassword } = req.body as { newPassword?: string };
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
+    }
+    const newHash = await bcrypt.hash(newPassword, 12);
 
-    // تحديث كلمة مرور الـ owner في users collection
     const updated = await User.findOneAndUpdate(
       { storeId: req.params["id"], role: "owner" },
       { password: newHash },
@@ -148,9 +150,66 @@ router.post("/:id/reset-password", async (req: Request, res: Response) => {
     }
 
     console.log(`✅ Password reset for store: ${req.params["id"]}`);
-    return res.json({ newPassword: newRawPass });
+    return res.json({ ok: true });
   } catch (err) {
     return res.status(500).json({ error: "خطأ في إعادة تعيين كلمة المرور" });
+  }
+});
+
+// ── GET /api/stores/:id/users — SA يجلب موظفي متجر محدد ──────────────────────
+router.get("/:id/users", async (req: Request, res: Response) => {
+  try {
+    const users = await User.find({ storeId: req.params["id"] }).select("-password");
+    res.json(users.map(u => ({
+      id: u._id,
+      name: (u as { name: string }).name,
+      email: (u as { email: string }).email,
+      role: (u as { role: string }).role,
+      phone: (u as { phone?: string }).phone || "",
+    })));
+  } catch {
+    res.status(500).json({ error: "خطأ في جلب الموظفين" });
+  }
+});
+
+// ── POST /api/stores/:id/users/:uid/reset-password — SA يغير كلمة مرور موظف ──
+router.post("/:id/users/:uid/reset-password", async (req: Request, res: Response) => {
+  try {
+    const { newPassword } = req.body as { newPassword?: string };
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
+    }
+    const newHash = await bcrypt.hash(newPassword, 12);
+    const updated = await User.findOneAndUpdate(
+      { _id: req.params["uid"], storeId: req.params["id"] },
+      { password: newHash },
+      { new: true }
+    ).select("-password");
+    if (!updated) return res.status(404).json({ error: "الموظف غير موجود" });
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ error: "خطأ في تغيير كلمة المرور" });
+  }
+});
+
+// ── PATCH /api/stores/:id/assign-plan — تعيين أو تجديد خطة اشتراك ────────────
+router.patch("/:id/assign-plan", async (req: Request, res: Response) => {
+  try {
+    const id = req.params["id"];
+    const { plan, months } = req.body;
+    const store = await Store.findById(id);
+    if (!store) return res.status(404).json({ error: "المتجر غير موجود" });
+
+    if (plan) store.plan = plan;
+    const base = store.expiresAt && new Date(store.expiresAt) > new Date() ? new Date(store.expiresAt) : new Date();
+    const m = parseInt(months) || 1;
+    base.setMonth(base.getMonth() + m);
+    store.expiresAt = base.toISOString().split("T")[0];
+    store.status = "active";
+    await store.save();
+    return res.json({ ok: true, store: { ...store.toObject(), id: store._id.toString() } });
+  } catch (err) {
+    return res.status(500).json({ error: "خطأ في تعيين الخطة" });
   }
 });
 
