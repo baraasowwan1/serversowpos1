@@ -153,17 +153,24 @@ router.post("/:id/reset-password", async (req: Request, res: Response) => {
     }
     const newHash = await bcrypt.hash(newPassword, 12);
 
-    const updated = await User.findOneAndUpdate(
-      { storeId: req.params["id"], role: "owner" },
-      { password: newHash },
-      { new: true }
-    );
+    const rawId = req.params["id"];
+    let storeObjId: mongoose.Types.ObjectId | null = null;
+    try { storeObjId = new mongoose.Types.ObjectId(rawId); } catch { /* invalid id format */ }
+
+    const query = storeObjId
+      ? { $or: [{ storeId: storeObjId }, { storeId: rawId }], role: "owner" }
+      : { storeId: rawId, role: "owner" };
+
+    const updated = await User.findOneAndUpdate(query, { password: newHash }, { new: true });
 
     if (!updated) {
-      return res.status(404).json({ error: "مستخدم المتجر غير موجود" });
+      // Debug: check if any user exists for this store (not just owner)
+      const anyUser = await User.findOne(storeObjId ? { $or: [{ storeId: storeObjId }, { storeId: rawId }] } : { storeId: rawId });
+      console.error(`[reset-password] storeId=${rawId} — anyUser found? ${anyUser ? `yes (role=${(anyUser as { role: string }).role})` : "no"}`);
+      return res.status(404).json({ error: "مستخدم المتجر غير موجود — تأكد من أن المتجر يملك مستخدم بدور owner" });
     }
 
-    console.log(`✅ Password reset for store: ${req.params["id"]}`);
+    console.log(`✅ Password reset for store: ${rawId} (user: ${updated.email})`);
     return res.json({ ok: true });
   } catch (err) {
     return res.status(500).json({ error: "خطأ في إعادة تعيين كلمة المرور" });
