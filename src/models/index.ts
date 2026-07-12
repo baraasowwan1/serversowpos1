@@ -79,32 +79,43 @@ export const User = mongoose.model<IUser>("User", UserSchema);
 
 // ── Product ───────────────────────────────────────────────────────────────────
 export interface IProduct extends Document {
-  storeId:   Types.ObjectId;
-  nameAr:    string; nameEn: string; barcode: string; sku: string;
-  category:  string; costPrice: number; sellPrice: number;
-  stock:     number; minStock: number; image: string; unit: string;
-  brand?:    string; taxable: boolean;
-  offData?:  object;
+  storeId:        Types.ObjectId;
+  nameAr:         string; nameEn: string; barcode: string; sku: string;
+  category:       string; costPrice: number; sellPrice: number;
+  stock:          number; minStock: number; image: string; unit: string;
+  brand?:         string; taxable: boolean;
+  offData?:       object;
+  masterCatalogRef?: Types.ObjectId;  // link to MasterSupermarketProduct (if from catalog)
+  purchaseUnit?:  string;
+  salesUnit?:     string;
+  storageType?:   string;
+  description?:   string;
 }
 const ProductSchema = new Schema<IProduct>({
-  storeId:   { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
-  nameAr:    { type: String, required: true },
-  nameEn:    { type: String, default: "" },
-  barcode:   { type: String, default: "" },
-  sku:       { type: String, default: "" },
-  category:  { type: String, default: "" },
-  costPrice: { type: Number, default: 0 },
-  sellPrice: { type: Number, required: true },
-  stock:     { type: Number, default: 0 },
-  minStock:  { type: Number, default: 5 },
-  image:     { type: String, default: "" },
-  unit:      { type: String, default: "قطعة" },
-  brand:     { type: String, default: "" },
-  taxable:   { type: Boolean, default: true },
-  offData:   { type: Object, default: null },
+  storeId:        { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
+  nameAr:         { type: String, required: true },
+  nameEn:         { type: String, default: "" },
+  barcode:        { type: String, default: "" },
+  sku:            { type: String, default: "" },
+  category:       { type: String, default: "" },
+  costPrice:      { type: Number, default: 0 },
+  sellPrice:      { type: Number, required: true },
+  stock:          { type: Number, default: 0 },
+  minStock:       { type: Number, default: 5 },
+  image:          { type: String, default: "" },
+  unit:           { type: String, default: "قطعة" },
+  brand:          { type: String, default: "" },
+  taxable:        { type: Boolean, default: true },
+  offData:        { type: Object, default: null },
+  masterCatalogRef: { type: Schema.Types.ObjectId, ref: "MasterSupermarketProduct", default: null },
+  purchaseUnit:   { type: String, default: "" },
+  salesUnit:      { type: String, default: "" },
+  storageType:    { type: String, default: "" },
+  description:    { type: String, default: "" },
 }, { timestamps: true });
 ProductSchema.index({ storeId: 1, barcode: 1 });
 ProductSchema.index({ storeId: 1, sku: 1 });
+ProductSchema.index({ masterCatalogRef: 1 }, { sparse: true });
 export const Product = mongoose.model<IProduct>("Product", ProductSchema);
 
 // ── Sale ──────────────────────────────────────────────────────────────────────
@@ -428,3 +439,63 @@ const FlowerOrderSchema = new Schema<IFlowerOrder>({
 
 FlowerOrderSchema.index({ storeId: 1, orderNo: 1 }, { unique: true });
 export const FlowerOrder = mongoose.model<IFlowerOrder>("FlowerOrder", FlowerOrderSchema);
+
+// ── MasterSupermarketProduct (كتالوج السوبرماركت المركزي) ──────────────────────
+export interface IMasterSupermarketProduct extends Document {
+  _id:                     Types.ObjectId;
+  pid:                     string;
+  sku:                     string;
+  barcode:                 string;
+  product_name:            string;
+  product_name_ar:         string;
+  description:             string;
+  category:                string;
+  purchase_price_default:  number;
+  selling_price_default:   number;
+  purchase_unit:           string;
+  sales_unit:              string;
+  tax_rate:                number;
+  reorder_point_default:   number;
+  storage_type:            string;
+  expiry_supported:        boolean;
+  manufacturing_supported: boolean;
+  image_url:               string;
+  open_food_facts_enabled: boolean;
+  row_order:               number;
+  active:                  boolean;
+  createdAt:               Date;
+  updatedAt:               Date;
+}
+
+const MasterSupermarketProductSchema = new Schema<IMasterSupermarketProduct>({
+  pid:                     { type: String, default: "" },
+  sku:                     { type: String, default: "" },
+  barcode:                 { type: String, default: "" },
+  product_name:            { type: String, required: true },
+  product_name_ar:         { type: String, default: "" },
+  description:             { type: String, default: "" },
+  category:                { type: String, default: "عام" },
+  purchase_price_default:  { type: Number, default: 0 },
+  selling_price_default:   { type: Number, default: 0 },
+  purchase_unit:           { type: String, default: "حبة" },
+  sales_unit:              { type: String, default: "حبة" },
+  tax_rate:                { type: Number, default: 0.16 },
+  reorder_point_default:   { type: Number, default: 5 },
+  storage_type:            { type: String, default: "" },
+  expiry_supported:        { type: Boolean, default: false },
+  manufacturing_supported: { type: Boolean, default: false },
+  image_url:               { type: String, default: "" },
+  open_food_facts_enabled: { type: Boolean, default: true },
+  row_order:               { type: Number, default: 0, index: true },
+  active:                  { type: Boolean, default: true, index: true },
+}, { timestamps: true });
+
+MasterSupermarketProductSchema.index({ barcode: 1 });
+MasterSupermarketProductSchema.index({ sku: 1 });
+MasterSupermarketProductSchema.index({ category: 1 });
+MasterSupermarketProductSchema.index({ product_name: "text", product_name_ar: "text", barcode: "text", sku: "text" });
+
+export const MasterSupermarketProduct = mongoose.model<IMasterSupermarketProduct>(
+  "MasterSupermarketProduct",
+  MasterSupermarketProductSchema
+);
