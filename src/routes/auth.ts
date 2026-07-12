@@ -25,16 +25,23 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "البريد الإلكتروني وكلمة المرور مطلوبان" });
     }
 
-    // 1. ابحث عن المستخدم في قاعدة البيانات
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    // 1. ابحث عن المستخدم بالبريد الإلكتروني أو رقم الهاتف
+    const identifier = email.toLowerCase().trim();
+    const user = await User.findOne({
+      $or: [
+        { email: identifier },
+        { phone: identifier },
+        { phone: identifier.replace(/\D/g, "") }, // بدون رموز
+      ],
+    });
     if (!user) {
-      return res.status(401).json({ error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" });
+      return res.status(401).json({ error: "البريد الإلكتروني أو رقم الهاتف أو كلمة المرور غير صحيحة" });
     }
 
     // 2. تحقق من كلمة المرور (bcrypt)
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      return res.status(401).json({ error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" });
+      return res.status(401).json({ error: "البريد الإلكتروني أو رقم الهاتف أو كلمة المرور غير صحيحة" });
     }
 
     // 3. تحقق من حالة المستخدم
