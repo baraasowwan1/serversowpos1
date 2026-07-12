@@ -357,10 +357,9 @@ router.delete("/:id", async (req: Request, res: Response) => {
 });
 
 // ── POST /api/master-catalog/apply-to-store ────────────────────────────────────
-// Apply catalog to a single store
 router.post("/apply-to-store", async (req: Request, res: Response) => {
   try {
-    const { storeId } = req.body as { storeId: string };
+    const { storeId, initialStock } = req.body as { storeId: string; initialStock?: number };
     if (!storeId) return res.status(400).json({ error: "storeId مطلوب" });
 
     let storeObjId: mongoose.Types.ObjectId;
@@ -374,7 +373,8 @@ router.post("/apply-to-store", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "المتجر ليس سوبرماركت" });
     }
 
-    const added = await initializeStoreFromCatalog(storeObjId);
+    const stock = Math.max(0, parseInt(String(initialStock ?? 0)) || 0);
+    const added = await initializeStoreFromCatalog(storeObjId, stock);
     res.json({ ok: true, added });
   } catch (e) {
     console.error("[apply-to-store]", e);
@@ -383,14 +383,15 @@ router.post("/apply-to-store", async (req: Request, res: Response) => {
 });
 
 // ── POST /api/master-catalog/apply-to-all ─────────────────────────────────────
-// Apply new catalog products to all existing supermarket stores
 router.post("/apply-to-all", async (req: Request, res: Response) => {
   try {
+    const { initialStock } = req.body as { initialStock?: number };
+    const stock = Math.max(0, parseInt(String(initialStock ?? 0)) || 0);
     const supermarkets = await Store.find({ category: "supermarket" }).select("_id nameAr").lean();
     const results: { store: string; added: number }[] = [];
 
     for (const store of supermarkets) {
-      const added = await initializeStoreFromCatalog(store._id as mongoose.Types.ObjectId);
+      const added = await initializeStoreFromCatalog(store._id as mongoose.Types.ObjectId, stock);
       results.push({ store: (store as { nameAr: string }).nameAr, added });
     }
 
@@ -402,7 +403,7 @@ router.post("/apply-to-all", async (req: Request, res: Response) => {
 });
 
 // ── Helper: initialize or top-up a store from master catalog ──────────────────
-export async function initializeStoreFromCatalog(storeId: mongoose.Types.ObjectId): Promise<number> {
+export async function initializeStoreFromCatalog(storeId: mongoose.Types.ObjectId, initialStock = 0): Promise<number> {
   const catalogProducts = await MasterSupermarketProduct.find({ active: true })
     .sort({ row_order: 1 })
     .lean();
@@ -438,7 +439,7 @@ export async function initializeStoreFromCatalog(storeId: mongoose.Types.ObjectI
       category:   cp.category,
       costPrice:  cp.purchase_price_default,
       sellPrice:  cp.selling_price_default,
-      stock:      0,
+      stock:      initialStock,
       minStock:   cp.reorder_point_default,
       image:      cp.image_url,
       unit:       cp.sales_unit || "حبة",
