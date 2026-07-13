@@ -207,7 +207,7 @@ router.get("/profit", async (req: AuthRequest, res: Response) => {
   const dailyMap = new Map<string, { sales: number; cost: number; profit: number; tax: number; invoices: number }>();
 
   for (const sale of sales) {
-    const day = sale.createdAt.toISOString().slice(0, 10);
+    const day = new Date((sale as unknown as { createdAt: Date | string }).createdAt).toISOString().slice(0, 10);
     if (!dailyMap.has(day)) dailyMap.set(day, { sales: 0, cost: 0, profit: 0, tax: 0, invoices: 0 });
     const d = dailyMap.get(day)!;
     d.sales    += sale.total;
