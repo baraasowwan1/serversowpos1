@@ -3,7 +3,7 @@
  */
 import { Router, Response } from "express";
 import mongoose from "mongoose";
-import { Sale, Product } from "../models/index";
+import { Sale, Product, Customer } from "../models/index";
 import { authMiddleware, AuthRequest, scopeToStore } from "../middleware/auth";
 
 const router = Router();
@@ -27,7 +27,11 @@ router.get("/", async (req: AuthRequest, res: Response) => {
 // إنشاء فاتورة جديدة + خصم من المخزون
 router.post("/", async (req: AuthRequest, res: Response) => {
   const scope = scopeToStore(req);
-  const { items, subtotal, discountAmt, taxAmt, total, payMethod, cashIn, change } = req.body;
+  const {
+    items, subtotal, discountAmt, taxAmt, total, payMethod, cashIn, change,
+    customerId, customerName, customerPhone,
+    loyaltyPointsEarned, loyaltyPointsRedeemed,
+  } = req.body;
   if (!items?.length || !total) return res.status(400).json({ error: "بيانات الفاتورة ناقصة" });
 
   const count = await Sale.countDocuments({ storeId: scope.storeId });
@@ -36,7 +40,8 @@ router.post("/", async (req: AuthRequest, res: Response) => {
   const sale = await Sale.create({
     storeId: scope.storeId, invoiceNo, items,
     subtotal, discountAmt, taxAmt, total,
-    payMethod, cashIn, change, status: "completed"
+    payMethod, cashIn, change, status: "completed",
+    customerId, customerName, customerPhone,
   });
 
   // خصم من المخزون تلقائياً
@@ -45,6 +50,30 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       { _id: item.productId, storeId: scope.storeId },
       { $inc: { stock: -item.qty } }
     );
+  }
+
+  // ذمم: أضف الدين على العميل عند الدفع بالذمة
+  if (payMethod === "credit" && customerId) {
+    await Customer.findOneAndUpdate(
+      { _id: customerId, storeId: scope.storeId },
+      { $inc: { debt: total, totalPurchases: total } }
+    );
+  } else if (customerId) {
+    await Customer.findOneAndUpdate(
+      { _id: customerId, storeId: scope.storeId },
+      { $inc: { totalPurchases: total } }
+    );
+  }
+
+  // نقاط الولاء: منح أو خصم نقاط
+  if (customerId && (loyaltyPointsEarned || loyaltyPointsRedeemed)) {
+    const delta = (loyaltyPointsEarned || 0) - (loyaltyPointsRedeemed || 0);
+    if (delta !== 0) {
+      await Customer.findOneAndUpdate(
+        { _id: customerId, storeId: scope.storeId },
+        { $inc: { loyaltyPoints: delta } }
+      );
+    }
   }
 
   res.status(201).json(sale);
