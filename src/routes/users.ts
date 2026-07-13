@@ -19,6 +19,9 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     role: (u as { role: string }).role,
     status: (u as { status: string }).status,
     phone: (u as { phone?: string }).phone || "",
+    shift: (u as { shift?: string }).shift || "flexible",
+    shiftStart: (u as { shiftStart?: string }).shiftStart || "",
+    shiftEnd: (u as { shiftEnd?: string }).shiftEnd || "",
     branch: "",
     sales: 0,
   })));
@@ -64,12 +67,16 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 router.put("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const scope = scopeToStore(req);
-    const { name, phone, role, status, password } = req.body;
+    const { name, phone, role, status, password, shift, shiftStart, shiftEnd } = req.body;
     const validRoles = ["owner", "manager", "cashier", "inventory", "accountant"];
     const validStatuses = ["active", "suspended"];
+    const validShifts = ["morning", "evening", "night", "flexible"];
     const update: Record<string, unknown> = { name, phone };
     if (role) update["role"] = validRoles.includes(role) ? role : "cashier";
     if (status) update["status"] = validStatuses.includes(status) ? status : "active";
+    if (shift) update["shift"] = validShifts.includes(shift) ? shift : "flexible";
+    if (shiftStart !== undefined) update["shiftStart"] = shiftStart;
+    if (shiftEnd !== undefined) update["shiftEnd"] = shiftEnd;
     if (password && typeof password === "string" && password.length >= 6) {
       update["password"] = await bcrypt.hash(password, 10);
     }
