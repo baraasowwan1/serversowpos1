@@ -20,13 +20,14 @@ const app = express();
 
 // ── Security Middleware ──────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({
-  // Allow any origin — JWT is the security gate, not CORS
-  origin: true,
+const corsOptions = {
+  origin: true, // reflect request origin — JWT is the security gate
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-}));
+};
+app.options("*", cors(corsOptions)); // explicit preflight handler for all routes
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "10mb" }));
 app.use(morgan(process.env["NODE_ENV"] === "production" ? "combined" : "dev"));
 
