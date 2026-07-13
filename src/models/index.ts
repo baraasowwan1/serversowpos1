@@ -80,26 +80,32 @@ export const Store = mongoose.model<IStore>("Store", StoreSchema);
 // كل مستخدم مرتبط بمتجر عبر storeId — المصدر الوحيد للحقيقة
 export interface IUser extends Document {
   _id: Types.ObjectId;
-  storeId:    Types.ObjectId;   // tenant isolation
+  storeId:    Types.ObjectId;
   branchId?:  Types.ObjectId;
   name:       string;
   email:      string;
   username?:  string;
-  password:   string;           // bcrypt hash — لا تُخزَّن كلمة المرور الصريحة أبداً
+  password:   string;
   role:       "owner" | "manager" | "cashier" | "inventory" | "accountant";
   status:     "active" | "suspended";
+  shift?:     "morning" | "evening" | "night" | "flexible";
+  shiftStart?: string;
+  shiftEnd?:   string;
   createdAt:  Date;
   updatedAt:  Date;
 }
 const UserSchema = new Schema<IUser>({
-  storeId:  { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
-  branchId: { type: Schema.Types.ObjectId, ref: "Branch", default: null },
-  name:     { type: String, required: true },
-  email:    { type: String, required: true, unique: true, lowercase: true, trim: true },
-  username: { type: String, default: "" },
-  password: { type: String, required: true },  // bcrypt hash
-  role:     { type: String, default: "owner", enum: ["owner","manager","cashier","inventory","accountant"] },
-  status:   { type: String, default: "active", enum: ["active","suspended"] },
+  storeId:    { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
+  branchId:   { type: Schema.Types.ObjectId, ref: "Branch", default: null },
+  name:       { type: String, required: true },
+  email:      { type: String, required: true, unique: true, lowercase: true, trim: true },
+  username:   { type: String, default: "" },
+  password:   { type: String, required: true },
+  role:       { type: String, default: "owner", enum: ["owner","manager","cashier","inventory","accountant"] },
+  status:     { type: String, default: "active", enum: ["active","suspended"] },
+  shift:      { type: String, default: "flexible", enum: ["morning","evening","night","flexible"] },
+  shiftStart: { type: String, default: "" },
+  shiftEnd:   { type: String, default: "" },
 }, { timestamps: true });
 UserSchema.index({ storeId: 1, email: 1 });
 export const User = mongoose.model<IUser>("User", UserSchema);
@@ -193,6 +199,7 @@ export interface ICustomer extends Document {
   storeId: Types.ObjectId;
   name: string; phone: string; email?: string;
   loyaltyPoints: number; level: string; totalPurchases: number;
+  debt: number;
 }
 const CustomerSchema = new Schema<ICustomer>({
   storeId:        { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
@@ -202,6 +209,7 @@ const CustomerSchema = new Schema<ICustomer>({
   loyaltyPoints:  { type: Number, default: 0 },
   level:          { type: String, default: "عادي" },
   totalPurchases: { type: Number, default: 0 },
+  debt:           { type: Number, default: 0 },
 }, { timestamps: true });
 export const Customer = mongoose.model<ICustomer>("Customer", CustomerSchema);
 
