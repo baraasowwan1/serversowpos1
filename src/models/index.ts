@@ -5,6 +5,13 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
 // ── Store ─────────────────────────────────────────────────────────────────────
+export interface ISidebarFeatures {
+  pos?: boolean; products?: boolean; inventory?: boolean;
+  sales?: boolean; customers?: boolean; suppliers?: boolean;
+  purchases?: boolean; purchaseOrders?: boolean; reports?: boolean;
+  expenses?: boolean; users?: boolean; settings?: boolean;
+  branches?: boolean; promotions?: boolean; returns?: boolean;
+}
 export interface IStore extends Document {
   _id: Types.ObjectId;
   nameAr: string; nameEn: string; category: string;
@@ -14,13 +21,11 @@ export interface IStore extends Document {
   vatRate: number; currency: string; language: string;
   expiresAt: Date; createdAt: Date; updatedAt: Date;
   // White-label branding
-  appName?: string;
-  primaryColor?: string;
-  logoUrl?: string;
-  iconUrl?: string;
-  splashLogoUrl?: string;
-  receiptLogoUrl?: string;
-  // Category-specific feature flags (set by migration, overridable by SA)
+  appName?: string; primaryColor?: string;
+  logoUrl?: string; iconUrl?: string;
+  splashLogoUrl?: string; receiptLogoUrl?: string;
+  // Sidebar feature visibility (set by SA per store)
+  sidebarFeatures?: ISidebarFeatures;
   openFoodFactsEnabled?: boolean;
 }
 const StoreSchema = new Schema<IStore>({
@@ -38,13 +43,32 @@ const StoreSchema = new Schema<IStore>({
   currency: { type: String, default: "JOD" },
   language: { type: String, default: "ar" },
   expiresAt:{ type: Date, default: () => new Date(Date.now() + 14 * 86400000) },
-  // White-label branding
   appName:        { type: String, default: "" },
   primaryColor:   { type: String, default: "" },
   logoUrl:        { type: String, default: "" },
   iconUrl:        { type: String, default: "" },
   splashLogoUrl:  { type: String, default: "" },
   receiptLogoUrl: { type: String, default: "" },
+  sidebarFeatures: {
+    type: new Schema({
+      pos:            { type: Boolean, default: true },
+      products:       { type: Boolean, default: true },
+      inventory:      { type: Boolean, default: true },
+      sales:          { type: Boolean, default: true },
+      customers:      { type: Boolean, default: true },
+      suppliers:      { type: Boolean, default: true },
+      purchases:      { type: Boolean, default: true },
+      purchaseOrders: { type: Boolean, default: true },
+      reports:        { type: Boolean, default: true },
+      expenses:       { type: Boolean, default: true },
+      users:          { type: Boolean, default: true },
+      settings:       { type: Boolean, default: true },
+      branches:       { type: Boolean, default: false },
+      promotions:     { type: Boolean, default: true },
+      returns:        { type: Boolean, default: true },
+    }, { _id: false }),
+    default: {},
+  },
   openFoodFactsEnabled: { type: Boolean, default: false },
 }, { timestamps: true });
 export const Store = mongoose.model<IStore>("Store", StoreSchema);
@@ -81,21 +105,24 @@ export const User = mongoose.model<IUser>("User", UserSchema);
 export interface IProduct extends Document {
   storeId:        Types.ObjectId;
   nameAr:         string; nameEn: string; barcode: string; sku: string;
+  // Multiple barcodes — any barcode in this array resolves to this product
+  barcodes:       string[];
   category:       string; costPrice: number; sellPrice: number;
   stock:          number; minStock: number; image: string; unit: string;
-  brand?:         string; taxable: boolean;
+  brand?:         string;
+  taxable:        boolean;
+  taxRate:        number;   // 0 | 2 | 4 | 8 | 16  (percentage)
   offData?:       object;
-  masterCatalogRef?: Types.ObjectId;  // link to MasterSupermarketProduct (if from catalog)
-  purchaseUnit?:  string;
-  salesUnit?:     string;
-  storageType?:   string;
-  description?:   string;
+  masterCatalogRef?: Types.ObjectId;
+  purchaseUnit?:  string; salesUnit?: string;
+  storageType?:   string; description?: string;
 }
 const ProductSchema = new Schema<IProduct>({
   storeId:        { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
   nameAr:         { type: String, required: true },
   nameEn:         { type: String, default: "" },
   barcode:        { type: String, default: "" },
+  barcodes:       [{ type: String }],   // additional / linked barcodes
   sku:            { type: String, default: "" },
   category:       { type: String, default: "" },
   costPrice:      { type: Number, default: 0 },
@@ -106,6 +133,7 @@ const ProductSchema = new Schema<IProduct>({
   unit:           { type: String, default: "قطعة" },
   brand:          { type: String, default: "" },
   taxable:        { type: Boolean, default: true },
+  taxRate:        { type: Number, default: 0, enum: [0, 2, 4, 8, 16] },
   offData:        { type: Object, default: null },
   masterCatalogRef: { type: Schema.Types.ObjectId, ref: "MasterSupermarketProduct", default: null },
   purchaseUnit:   { type: String, default: "" },
@@ -114,6 +142,7 @@ const ProductSchema = new Schema<IProduct>({
   description:    { type: String, default: "" },
 }, { timestamps: true });
 ProductSchema.index({ storeId: 1, barcode: 1 });
+ProductSchema.index({ storeId: 1, barcodes: 1 });
 ProductSchema.index({ storeId: 1, sku: 1 });
 ProductSchema.index({ storeId: 1, category: 1, nameAr: 1 });
 ProductSchema.index({ masterCatalogRef: 1 }, { sparse: true });
@@ -500,3 +529,109 @@ export const MasterSupermarketProduct = mongoose.model<IMasterSupermarketProduct
   "MasterSupermarketProduct",
   MasterSupermarketProductSchema
 );
+
+// ── PurchaseOrder (طلبات الشراء) ───────────────────────────────────────────────
+export type POStatus = "draft" | "pending" | "approved" | "rejected" | "ordered" | "received" | "cancelled";
+
+export interface IPurchaseOrderItem {
+  productId?:  Types.ObjectId;
+  nameAr:      string;
+  barcode:     string;
+  sku:         string;
+  unit:        string;
+  qtyOrdered:  number;
+  qtyReceived: number;
+  costPrice:   number;
+  total:       number;
+}
+export interface IPurchaseOrder extends Document {
+  storeId:      Types.ObjectId;
+  branchId?:    Types.ObjectId;
+  poNumber:     string;
+  supplierId?:  Types.ObjectId;
+  supplierName: string;
+  items:        IPurchaseOrderItem[];
+  subtotal:     number;
+  taxAmt:       number;
+  total:        number;
+  status:       POStatus;
+  requestedBy:  string;
+  approvedBy?:  string;
+  rejectedBy?:  string;
+  rejectionNote?: string;
+  notes?:       string;
+  expectedDate?: Date;
+  receivedDate?: Date;
+  createdAt:    Date;
+  updatedAt:    Date;
+}
+const POItemSchema = new Schema({
+  productId:   { type: Schema.Types.ObjectId, ref: "Product" },
+  nameAr:      { type: String, required: true },
+  barcode:     { type: String, default: "" },
+  sku:         { type: String, default: "" },
+  unit:        { type: String, default: "قطعة" },
+  qtyOrdered:  { type: Number, default: 1 },
+  qtyReceived: { type: Number, default: 0 },
+  costPrice:   { type: Number, default: 0 },
+  total:       { type: Number, default: 0 },
+}, { _id: false });
+const PurchaseOrderSchema = new Schema<IPurchaseOrder>({
+  storeId:      { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
+  branchId:     { type: Schema.Types.ObjectId, ref: "Branch", default: null },
+  poNumber:     { type: String, required: true },
+  supplierId:   { type: Schema.Types.ObjectId, ref: "Supplier" },
+  supplierName: { type: String, default: "" },
+  items:        [POItemSchema],
+  subtotal:     { type: Number, default: 0 },
+  taxAmt:       { type: Number, default: 0 },
+  total:        { type: Number, default: 0 },
+  status:       { type: String, default: "draft", enum: ["draft","pending","approved","rejected","ordered","received","cancelled"] },
+  requestedBy:  { type: String, default: "" },
+  approvedBy:   { type: String, default: "" },
+  rejectedBy:   { type: String, default: "" },
+  rejectionNote:{ type: String, default: "" },
+  notes:        { type: String, default: "" },
+  expectedDate: { type: Date },
+  receivedDate: { type: Date },
+}, { timestamps: true });
+PurchaseOrderSchema.index({ storeId: 1, poNumber: 1 }, { unique: true });
+PurchaseOrderSchema.index({ storeId: 1, status: 1 });
+export const PurchaseOrder = mongoose.model<IPurchaseOrder>("PurchaseOrder", PurchaseOrderSchema);
+
+// ── Promotion (العروض والخصومات) ────────────────────────────────────────────────
+export type PromoType = "percentage" | "fixed" | "bxgy";
+
+export interface IPromotion extends Document {
+  storeId:      Types.ObjectId;
+  name:         string;
+  type:         PromoType;
+  discountValue: number;   // % for percentage, JOD for fixed
+  buyQty?:      number;    // for bxgy: buy X
+  getQty?:      number;    // for bxgy: get Y free
+  appliesTo:    "all" | "specific";
+  productIds:   Types.ObjectId[];
+  categories:   string[];
+  startDate:    Date;
+  endDate:      Date;
+  active:       boolean;
+  createdBy:    string;
+  createdAt:    Date;
+}
+const PromotionSchema = new Schema<IPromotion>({
+  storeId:       { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
+  name:          { type: String, required: true },
+  type:          { type: String, default: "percentage", enum: ["percentage","fixed","bxgy"] },
+  discountValue: { type: Number, default: 0 },
+  buyQty:        { type: Number, default: 0 },
+  getQty:        { type: Number, default: 0 },
+  appliesTo:     { type: String, default: "all", enum: ["all","specific"] },
+  productIds:    [{ type: Schema.Types.ObjectId, ref: "Product" }],
+  categories:    [String],
+  startDate:     { type: Date, default: Date.now },
+  endDate:       { type: Date, required: true },
+  active:        { type: Boolean, default: true },
+  createdBy:     { type: String, default: "" },
+}, { timestamps: true });
+PromotionSchema.index({ storeId: 1, active: 1, endDate: 1 });
+export const Promotion = mongoose.model<IPromotion>("Promotion", PromotionSchema);
