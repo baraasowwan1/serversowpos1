@@ -11,6 +11,7 @@ export interface ISidebarFeatures {
   purchases?: boolean; purchaseOrders?: boolean; reports?: boolean;
   expenses?: boolean; users?: boolean; settings?: boolean;
   branches?: boolean; promotions?: boolean; returns?: boolean;
+  loyalty?: boolean; sync?: boolean;
 }
 export interface IStore extends Document {
   _id: Types.ObjectId;
@@ -66,6 +67,8 @@ const StoreSchema = new Schema<IStore>({
       branches:       { type: Boolean, default: false },
       promotions:     { type: Boolean, default: true },
       returns:        { type: Boolean, default: true },
+      loyalty:        { type: Boolean, default: false },
+      sync:           { type: Boolean, default: true },
     }, { _id: false }),
     default: {},
   },
