@@ -6,6 +6,7 @@ import { Router, Response } from "express";
 import mongoose from "mongoose";
 import { Sale, Product, Expense, Customer } from "../models/index";
 import { authMiddleware, AuthRequest, scopeToStore } from "../middleware/auth";
+import { PurchaseOrder } from "../models/index";
 
 const router = Router();
 router.use(authMiddleware);
@@ -174,6 +175,125 @@ router.get("/summary", async (req: AuthRequest, res: Response) => {
     totalCustomers: customers,
     lowStock:       lowStockCount,
   });
+});
+
+// ── تقرير الأرباح التفصيلي (بتاريخ بداية ونهاية) ─────────────────────────────
+router.get("/profit", async (req: AuthRequest, res: Response) => {
+  const scope = scopeToStore(req);
+  const { from: fromQ, to: toQ } = req.query as { from?: string; to?: string };
+  const from = fromQ ? new Date(fromQ) : (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+  const to   = toQ   ? new Date(toQ)   : new Date();
+  if (to < from) return res.status(400).json({ error: "تاريخ النهاية يجب أن يكون بعد تاريخ البداية" });
+  to.setHours(23,59,59,999);
+
+  const sales = await Sale.find({
+    storeId: scope.storeId,
+    createdAt: { $gte: from, $lte: to },
+    status: "completed",
+  }).lean();
+
+  // Aggregate per product for profit calculation
+  const productMap = new Map<string, { costPrice: number; taxRate: number }>();
+  const productIds = [...new Set(sales.flatMap(s => s.items.map(i => i.productId)).filter(Boolean))];
+  if (productIds.length > 0) {
+    const products = await Product.find({
+      storeId: scope.storeId,
+      _id: { $in: productIds },
+    }).select("_id costPrice taxRate").lean();
+    products.forEach(p => productMap.set(String(p._id), { costPrice: p.costPrice, taxRate: (p as Record<string, unknown>)["taxRate"] as number ?? 0 }));
+  }
+
+  let totalSales = 0, totalCost = 0, totalTax = 0, totalDiscount = 0;
+  const dailyMap = new Map<string, { sales: number; cost: number; profit: number; tax: number; invoices: number }>();
+
+  for (const sale of sales) {
+    const day = sale.createdAt.toISOString().slice(0, 10);
+    if (!dailyMap.has(day)) dailyMap.set(day, { sales: 0, cost: 0, profit: 0, tax: 0, invoices: 0 });
+    const d = dailyMap.get(day)!;
+    d.sales    += sale.total;
+    d.tax      += sale.taxAmt || 0;
+    d.invoices += 1;
+    totalSales    += sale.total;
+    totalTax      += sale.taxAmt || 0;
+    totalDiscount += sale.discountAmt || 0;
+
+    for (const item of sale.items) {
+      const pInfo = productMap.get(item.productId);
+      const itemCost = (pInfo?.costPrice ?? 0) * item.qty;
+      d.cost    += itemCost;
+      totalCost += itemCost;
+    }
+    d.profit = d.sales - d.cost;
+  }
+
+  const daily = Array.from(dailyMap.entries())
+    .map(([date, v]) => ({ date, ...v }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  res.json({
+    from: from.toISOString(), to: to.toISOString(),
+    totalSales, totalCost, totalProfit: totalSales - totalCost,
+    totalTax, totalDiscount, invoiceCount: sales.length,
+    daily,
+  });
+});
+
+// ── تقرير مبيعات الكاشير ─────────────────────────────────────────────────────
+router.get("/cashiers", async (req: AuthRequest, res: Response) => {
+  const scope = scopeToStore(req);
+  const { from: fromQ, to: toQ } = req.query as { from?: string; to?: string };
+  const from = fromQ ? new Date(fromQ) : (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d; })();
+  const to   = toQ ? new Date(toQ) : new Date();
+  to.setHours(23,59,59,999);
+
+  const data = await Sale.aggregate([
+    { $match: { storeId: toOid(scope.storeId), createdAt: { $gte: from, $lte: to }, status: "completed" } },
+    { $group: {
+      _id: { $ifNull: ["$cashier", "غير محدد"] },
+      total:    { $sum: "$total" },
+      invoices: { $sum: 1 },
+      tax:      { $sum: { $ifNull: ["$taxAmt", 0] } },
+      discount: { $sum: { $ifNull: ["$discountAmt", 0] } },
+    }},
+    { $sort: { total: -1 } },
+  ]);
+  res.json(data.map((r: { _id: string; total: number; invoices: number; tax: number; discount: number }) => ({
+    cashier: r._id, total: r.total, invoices: r.invoices, tax: r.tax, discount: r.discount,
+  })));
+});
+
+// ── تقرير المخزون مفصّل (لتصدير Excel) ────────────────────────────────────────
+router.get("/inventory-detail", async (req: AuthRequest, res: Response) => {
+  const scope = scopeToStore(req);
+  const products = await Product.find({ storeId: scope.storeId })
+    .select("nameAr nameEn barcode sku category stock minStock costPrice sellPrice unit brand taxRate")
+    .sort({ category: 1, nameAr: 1 }).lean();
+  const totalCostValue  = products.reduce((s, p) => s + p.stock * p.costPrice, 0);
+  const totalSellValue  = products.reduce((s, p) => s + p.stock * p.sellPrice, 0);
+  const lowStock        = products.filter(p => p.stock > 0 && p.stock <= p.minStock).length;
+  const outOfStock      = products.filter(p => p.stock === 0).length;
+  res.json({ products, totalCostValue, totalSellValue, lowStock, outOfStock, total: products.length });
+});
+
+// ── تقرير مبيعات حسب الفرع ───────────────────────────────────────────────────
+router.get("/branches", async (req: AuthRequest, res: Response) => {
+  const scope = scopeToStore(req);
+  const { from: fromQ, to: toQ } = req.query as { from?: string; to?: string };
+  const from = fromQ ? new Date(fromQ) : (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d; })();
+  const to = toQ ? new Date(toQ) : new Date();
+
+  const data = await Sale.aggregate([
+    { $match: { storeId: toOid(scope.storeId), createdAt: { $gte: from, $lte: to }, status: "completed" } },
+    { $group: {
+      _id: { $ifNull: ["$branchId", "الفرع الرئيسي"] },
+      total: { $sum: "$total" }, invoices: { $sum: 1 },
+      cash:  { $sum: { $cond: [{ $eq: ["$payMethod","cash"] }, "$total", 0] } },
+      cliq:  { $sum: { $cond: [{ $in: ["$payMethod",["click","cliq"]] }, "$total", 0] } },
+      card:  { $sum: { $cond: [{ $eq: ["$payMethod","card"] }, "$total", 0] } },
+    }},
+    { $sort: { total: -1 } },
+  ]);
+  res.json(data);
 });
 
 export default router;
