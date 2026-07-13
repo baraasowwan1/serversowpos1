@@ -17,6 +17,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
   if (q) filter["$or"] = [
     { nameAr: { $regex: q, $options: "i" } },
     { barcode: q },
+    { barcodes: q },
     { sku: { $regex: q, $options: "i" } },
   ];
   const limit = Math.min(parseInt(limitQ || "5000"), 5000);
@@ -57,10 +58,47 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
   res.json({ message: "تم حذف المنتج" });
 });
 
-// جلب منتج بالباركود
+// جلب منتج بالباركود — يبحث في primary barcode + barcodes[]
 router.get("/barcode/:code", async (req: AuthRequest, res: Response) => {
   const scope = scopeToStore(req);
-  const product = await Product.findOne({ barcode: req.params["code"], storeId: scope.storeId });
+  const code = req.params["code"];
+  const product = await Product.findOne({
+    storeId: scope.storeId,
+    $or: [{ barcode: code }, { barcodes: code }],
+  });
+  if (!product) return res.status(404).json({ error: "المنتج غير موجود" });
+  res.json(product);
+});
+
+// إضافة باركود مرتبط لمنتج موجود
+router.post("/:id/barcodes", async (req: AuthRequest, res: Response) => {
+  const scope = scopeToStore(req);
+  const { barcode } = req.body as { barcode: string };
+  if (!barcode) return res.status(400).json({ error: "الباركود مطلوب" });
+  // check not in use by another product
+  const conflict = await Product.findOne({
+    storeId: scope.storeId,
+    _id: { $ne: req.params["id"] },
+    $or: [{ barcode }, { barcodes: barcode }],
+  });
+  if (conflict) return res.status(409).json({ error: `الباركود مستخدم للمنتج: ${conflict.nameAr}` });
+  const product = await Product.findOneAndUpdate(
+    { _id: req.params["id"], storeId: scope.storeId },
+    { $addToSet: { barcodes: barcode } },
+    { new: true }
+  );
+  if (!product) return res.status(404).json({ error: "المنتج غير موجود" });
+  res.json(product);
+});
+
+// حذف باركود مرتبط
+router.delete("/:id/barcodes/:barcode", async (req: AuthRequest, res: Response) => {
+  const scope = scopeToStore(req);
+  const product = await Product.findOneAndUpdate(
+    { _id: req.params["id"], storeId: scope.storeId },
+    { $pull: { barcodes: req.params["barcode"] } },
+    { new: true }
+  );
   if (!product) return res.status(404).json({ error: "المنتج غير موجود" });
   res.json(product);
 });
@@ -73,6 +111,8 @@ router.post("/bulk-import", async (req: AuthRequest, res: Response) => {
     nameAr?: string; nameEn?: string; barcode?: string; sku?: string;
     category?: string; costPrice?: number; sellPrice?: number;
     stock?: number; minStock?: number; unit?: string;
+    taxRate?: number;   // 0 | 2 | 4 | 8 | 16
+    brand?: string;
   }
   const { products: rows, updateExisting = true } = req.body as { products: ImportRow[]; updateExisting?: boolean };
   if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "لا توجد بيانات للاستيراد" });
@@ -106,6 +146,11 @@ router.post("/bulk-import", async (req: AuthRequest, res: Response) => {
         if (row.stock     !== undefined) existing.stock     = row.stock;
         if (row.minStock  !== undefined) existing.minStock  = row.minStock;
         if (row.unit)      existing.unit      = row.unit;
+        if (row.brand)     existing.brand     = row.brand;
+        if (row.taxRate !== undefined) {
+          const valid = [0,2,4,8,16];
+          existing.taxRate = valid.includes(Number(row.taxRate)) ? Number(row.taxRate) : 0;
+        }
         await existing.save();
         updated++;
       } else {
@@ -121,6 +166,8 @@ router.post("/bulk-import", async (req: AuthRequest, res: Response) => {
           stock:     row.stock     ?? 0,
           minStock:  row.minStock  ?? 5,
           unit:      row.unit      || "قطعة",
+          brand:     row.brand     || "",
+          taxRate:   [0,2,4,8,16].includes(Number(row.taxRate)) ? Number(row.taxRate) : 0,
           image:     "",
         });
         added++;
