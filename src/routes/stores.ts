@@ -175,7 +175,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 // ── PUT /api/stores/:id — تعديل متجر ─────────────────────────────────────────
 router.put("/:id", async (req: Request, res: Response) => {
   try {
-    const allowed = ["nameAr","nameEn","owner","phone","city","plan","status","taxNo","expiresAt","vatRate","language"];
+    const allowed = ["nameAr","nameEn","owner","phone","city","plan","status","taxNo","expiresAt","vatRate","language","sidebarFeatures"];
     const updates = Object.fromEntries(
       Object.entries(req.body).filter(([k]) => allowed.includes(k))
     );
