@@ -31,6 +31,7 @@ export async function logAudit(params: {
   target?:   string;
   prevValues?: unknown;
   newValues?:  unknown;
+  details?:    unknown;
 }) {
   try {
     const ua = params.req.headers["user-agent"] || "";
@@ -47,7 +48,7 @@ export async function logAudit(params: {
       category:  params.category || "general",
       target:    params.target   || "",
       prevValues: params.prevValues,
-      newValues:  params.newValues,
+      newValues:  params.newValues ?? params.details,
       ip, userAgent: ua, browser, os, device,
     });
   } catch { /* non-blocking */ }
