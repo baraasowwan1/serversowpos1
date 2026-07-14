@@ -3,6 +3,7 @@
  * شغّله مرة واحدة:  cd backend && npx ts-node src/seed.ts
  */
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -45,6 +46,74 @@ async function seed() {
     console.log(`ℹ️  Plans exist (${plansCount}) — skipped`);
   }
 
+  // ── متجر تجريبي ────────────────────────────────────────────────────────────
+  const demoEmail = "demo@store.com";
+  const demoPassword = "demo123"; // كلمة المرور الواضحة للتجربة
+  
+  const storeExists = await db.collection("stores").findOne({ email: demoEmail });
+  if (!storeExists) {
+    console.log("🏪 Creating demo store...");
+    
+    const hashedPassword = await bcrypt.hash(demoPassword, 12);
+    
+    const demoStore = await db.collection("stores").insertOne({
+      nameAr: "متجر تجريبي",
+      nameEn: "Demo Store",
+      category: "supermarket",
+      owner: "المدير التجريبي",
+      email: demoEmail,
+      phone: "0791234567",
+      city: "عمان",
+      status: "active",
+      plan: "الاحترافي",
+      taxNo: "",
+      vatRate: 0.16,
+      currency: "JOD",
+      language: "ar",
+      expiresAt: new Date(Date.now() + 365 * 86400000), // سنة كاملة
+      appName: "",
+      primaryColor: "",
+      logoUrl: "",
+      iconUrl: "",
+      splashLogoUrl: "",
+      receiptLogoUrl: "",
+      sidebarFeatures: {
+        pos: true, products: true, inventory: true,
+        sales: true, customers: true, suppliers: true,
+        purchases: true, purchaseOrders: true, reports: true,
+        expenses: true, users: true, settings: true,
+        branches: false, promotions: true, returns: true,
+        loyalty: false, sync: true,
+      },
+      openFoodFactsEnabled: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await db.collection("users").insertOne({
+      storeId: demoStore.insertedId,
+      name: "المدير التجريبي",
+      email: demoEmail,
+      username: "demo",
+      password: hashedPassword,
+      role: "owner",
+      status: "active",
+      shift: "flexible",
+      shiftStart: "",
+      shiftEnd: "",
+      branchName: "",
+      phone: "",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    console.log("✅ Demo store created!");
+    console.log("📧 Email:", demoEmail);
+    console.log("🔑 Password:", demoPassword);
+  } else {
+    console.log("ℹ️  Demo store already exists — skipped");
+  }
+
   // ── Database Indexes للأداء ──────────────────────────────────────────────────
   await db.collection("stores").createIndex({ email: 1 }, { unique: true });
   await db.collection("users").createIndex({ email: 1 }, { unique: true });
@@ -59,6 +128,9 @@ async function seed() {
 
   console.log("\n🎉 Database seeded successfully!");
   console.log("📊 Collections ready: stores, users, plans, products, sales, customers...");
+  console.log("\n🔑 Demo Store Login:");
+  console.log("   Email: demo@store.com");
+  console.log("   Password: demo123");
   console.log("\n🔑 Auth flow:");
   console.log("   1. Super Admin creates store → POST /api/stores");
   console.log("   2. System creates store + user in MongoDB");
