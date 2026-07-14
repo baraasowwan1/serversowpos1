@@ -83,14 +83,16 @@ router.post("/login", async (req: Request, res: Response) => {
     logAudit({ req: augReq, action: "تسجيل دخول", category: "login", target: user.email });
 
     // 8. إرجاع token + بيانات المتجر
+    const storeId = store._id.toString();
     return res.json({
       token,
+      storeId,
       user: {
-        id:    user._id, name: user.name,
+        id:    user._id.toString(), name: user.name,
         email: user.email, role: user.role,
       },
       store: {
-        id:             store._id,
+        id:             storeId,
         nameAr:         store.nameAr,
         nameEn:         store.nameEn,
         category:       store.category,
@@ -102,6 +104,7 @@ router.post("/login", async (req: Request, res: Response) => {
         phone:          store.phone,
         city:           store.city,
         expiresAt:      store.expiresAt,
+        sidebarFeatures: store.sidebarFeatures || {},
         // White-label branding
         appName:        store.appName || "",
         primaryColor:   store.primaryColor || "",
