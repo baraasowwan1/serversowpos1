@@ -163,7 +163,7 @@ export interface ISale extends Document {
   invoiceNo:   string;
   items:       { productId: string; nameAr: string; qty: number; unitPrice: number; discount: number; total: number }[];
   subtotal:    number; discountAmt: number; taxAmt: number; total: number;
-  payMethod:   "cash" | "click" | "split" | "cliq" | "card";
+  payMethod:   "cash" | "click" | "split" | "cliq" | "card" | "credit";
   cashIn?:     number; change?: number;
   cliqRef?:    string; cliqSender?: string; cardRef?: string;
   customerId?: string; customerName?: string; customerPhone?: string;
@@ -180,7 +180,7 @@ const SaleSchema = new Schema<ISale>({
   items:      [{ productId: String, nameAr: String, qty: Number, unitPrice: Number, discount: Number, total: Number }],
   subtotal:   Number, discountAmt: Number, taxAmt: Number,
   total:      { type: Number, required: true },
-  payMethod:  { type: String, enum: ["cash","click","split","cliq","card"], default: "cash" },
+  payMethod:  { type: String, enum: ["cash","click","split","cliq","card","credit"], default: "cash" },
   cashIn:     Number, change: Number,
   cliqRef:    String, cliqSender: String, cardRef: String,
   customerId: String, customerName: String, customerPhone: String,
