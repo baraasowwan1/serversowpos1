@@ -35,9 +35,8 @@ export async function validateStock(
   for (const item of items) {
     const product = await Product.findOne(
       { _id: item.productId, storeId },
-      "nameAr stock allowNegativeStock",
       { session }
-    );
+    ).select("nameAr stock allowNegativeStock");
     if (!product) {
       errors.push({
         code: "PRODUCT_NOT_FOUND",
@@ -74,7 +73,10 @@ export async function deductStock(
     );
     if (!updated) {
       // Check if it's because the product is gone or stock insufficient
-      const product = await Product.findOne({ _id: item.productId, storeId }, "nameAr stock allowNegativeStock", { session });
+      const product = await Product.findOne(
+        { _id: item.productId, storeId },
+        { session }
+      ).select("nameAr stock allowNegativeStock");
       if (!product) throw ruleError("PRODUCT_NOT_FOUND", `المنتج غير موجود: ${item.productId}`);
       if (product.allowNegativeStock) {
         // Force deduction for stores that allow negative stock
