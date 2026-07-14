@@ -19,7 +19,7 @@ export interface AuthRequest extends Request {
   userId?:       string;
   userRole?:     string;
   isSuperAdmin?: boolean;
-  requestId?:    string;
+  // requestId is declared as required on Express.Request via requestId.ts global augmentation
 }
 
 export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
