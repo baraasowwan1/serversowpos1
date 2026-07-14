@@ -33,6 +33,8 @@ const settingsSchema = new Schema({
   logoUrl:        { type: String, default: "" },
   iconUrl:        { type: String, default: "" },
   receiptLogoUrl: { type: String, default: "" },
+  // Sidebar features visibility
+  sidebarFeatures: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 
 const SettingsModel: AnyMongooseModel =
@@ -55,6 +57,7 @@ router.put("/", async (req: AuthRequest, res: Response) => {
     "storeName","phone","address","language","receiptLang","currency",
     "taxRate","paperSize","printCopies","printLogo","printTax","printPhone","printBarcode",
     "appName","primaryColor","logoUrl","iconUrl","receiptLogoUrl",
+    "sidebarFeatures",
   ];
   const updates = Object.fromEntries(
     Object.entries(req.body).filter(([k]) => allowed.includes(k))
@@ -72,6 +75,9 @@ router.put("/", async (req: AuthRequest, res: Response) => {
   if ("logoUrl"      in updates) brandingUpdates["logoUrl"]      = updates["logoUrl"] as string;
   if ("iconUrl"      in updates) brandingUpdates["iconUrl"]      = updates["iconUrl"] as string;
   if ("receiptLogoUrl" in updates) brandingUpdates["receiptLogoUrl"] = updates["receiptLogoUrl"] as string;
+  if ("sidebarFeatures" in updates) {
+    brandingUpdates["sidebarFeatures"] = updates["sidebarFeatures"] as object;
+  }
   if (Object.keys(brandingUpdates).length > 0) {
     await Store.findByIdAndUpdate(scope.storeId, { $set: brandingUpdates });
   }
