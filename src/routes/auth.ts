@@ -1,186 +1,84 @@
 /**
- * Auth Routes — المصادقة الكاملة
- *
- * POST /api/auth/login  — دخول المتجر (يتحقق من users collection)
- * POST /api/auth/admin  — دخول المدير العام
- * GET  /api/auth/me     — بيانات المستخدم الحالي من Database
+ * JWT Authentication Middleware
+ * يتحقق من token ويُحضر بيانات المتجر من Database
  */
-import { Router, Request, Response } from "express";
-import bcrypt from "bcryptjs";
+import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { User, Store } from "../models/index";
-import { authMiddleware, AuthRequest } from "../middleware/auth";
-import { logAudit } from "./audit";
+import { Store } from "../models/index";
 
-const router = Router();
-const secret = (): string => process.env["JWT_SECRET"] || "fallback-secret";
-const expires = (): string => process.env["JWT_EXPIRES_IN"] || "7d";
+interface JWTPayload {
+  userId?:       string;
+  storeId?:      string;
+  role?:         string;
+  email:         string;
+  isSuperAdmin?: boolean;
+}
 
-// ── POST /api/auth/login — دخول المتجر ───────────────────────────────────────
-// يتحقق من users collection في MongoDB — يعمل من أي متصفح/جهاز
-router.post("/login", async (req: Request, res: Response) => {
+export interface AuthRequest extends Request {
+  store?:        { id: string; nameAr: string; plan: string; status: string };
+  userId?:       string;
+  userRole?:     string;
+  isSuperAdmin?: boolean;
+  // requestId is declared as required on Express.Request via requestId.ts global augmentation
+}
+
+export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "يجب تسجيل الدخول" });
+  }
+
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ error: "توكن غير موجود" });
+  }
+
   try {
-    const { email, password } = req.body as { email: string; password: string };
-    if (!email || !password) {
-      return res.status(400).json({ error: "البريد الإلكتروني وكلمة المرور مطلوبان" });
+    const decoded = jwt.verify(token, process.env["JWT_SECRET"] as string) as JWTPayload;
+
+    if (decoded.isSuperAdmin) {
+      req.isSuperAdmin = true;
+      return next();
     }
 
-    // 1. ابحث عن المستخدم بالبريد الإلكتروني أو رقم الهاتف
-    const identifier = email.toLowerCase().trim();
-    const user = await User.findOne({
-      $or: [
-        { email: identifier },
-        { phone: identifier },
-        { phone: identifier.replace(/\D/g, "") }, // بدون رموز
-      ],
-    });
-    if (!user) {
-      return res.status(401).json({ error: "البريد الإلكتروني أو رقم الهاتف أو كلمة المرور غير صحيحة" });
+    if (!decoded.storeId) {
+      return res.status(401).json({ success: false, code: "INVALID_TOKEN", error: "توكن غير صالح", requestId: req.requestId });
     }
 
-    // 2. تحقق من كلمة المرور (bcrypt)
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
-      return res.status(401).json({ error: "البريد الإلكتروني أو رقم الهاتف أو كلمة المرور غير صحيحة" });
-    }
-
-    // 3. تحقق من حالة المستخدم
-    if (user.status === "suspended") {
-      return res.status(403).json({ error: "حسابك موقوف — تواصل مع مدير المتجر" });
-    }
-
-    // 4. جلب بيانات المتجر المرتبط
-    const store = await Store.findById(user.storeId);
+    // تحقق من المتجر في Database
+    const store = await Store.findById(decoded.storeId).select("nameAr plan status expiresAt");
     if (!store) {
-      return res.status(401).json({ error: "المتجر غير موجود أو تم حذفه" });
+      return res.status(401).json({ error: "المتجر غير موجود" });
     }
 
-    // 5. تحقق من حالة المتجر
     if (store.status === "suspended") {
-      return res.status(403).json({ error: "هذا المتجر موقوف — تواصل مع مزود الخدمة" });
+      return res.status(403).json({ error: "هذا المتجر موقوف" });
     }
+
     if (new Date(store.expiresAt) < new Date()) {
-      await Store.findByIdAndUpdate(store._id, { status: "expired" });
-      return res.status(403).json({ error: "انتهت صلاحية اشتراك المتجر — يجب التجديد" });
+      await Store.findByIdAndUpdate(decoded.storeId, { status: "expired" });
+      return res.status(403).json({ error: "انتهت صلاحية اشتراك المتجر" });
     }
 
-    // 6. إنشاء JWT token
-    const token = jwt.sign(
-      {
-        userId:  user._id.toString(),
-        storeId: user.storeId.toString(),
-        role:    user.role,
-        email:   user.email,
-      },
-      secret(),
-      { expiresIn: expires() } as object
-    );
+    req.store    = { id: decoded.storeId, nameAr: store.nameAr, plan: store.plan, status: store.status };
+    req.userId   = decoded.userId;
+    req.userRole = decoded.role;
 
-    // 7. Log audit event
-    const augReq = req as AuthRequest;
-    augReq.store = { id: store._id.toString(), nameAr: store.nameAr, plan: store.plan, status: store.status };
-    augReq.userId = user._id.toString();
-    logAudit({ req: augReq, action: "تسجيل دخول", category: "login", target: user.email });
-
-    // 8. إرجاع token + بيانات المتجر
-    const storeId = store._id.toString();
-    return res.json({
-      token,
-      storeId,
-      user: {
-        id:    user._id.toString(), name: user.name,
-        email: user.email, role: user.role,
-      },
-      store: {
-        id:             storeId,
-        nameAr:         store.nameAr,
-        nameEn:         store.nameEn,
-        category:       store.category,
-        plan:           store.plan,
-        status:         store.status,
-        vatRate:        store.vatRate,
-        currency:       store.currency,
-        language:       store.language,
-        phone:          store.phone,
-        city:           store.city,
-        expiresAt:      store.expiresAt,
-        sidebarFeatures: store.sidebarFeatures || {},
-        // White-label branding
-        appName:        store.appName || "",
-        primaryColor:   store.primaryColor || "",
-        logoUrl:        store.logoUrl || "",
-        iconUrl:        store.iconUrl || "",
-        splashLogoUrl:  store.splashLogoUrl || "",
-        receiptLogoUrl: store.receiptLogoUrl || "",
-      },
-    });
+    return next();
   } catch (err) {
-    console.error("Login error:", err);
-    return res.status(500).json({ error: "خطأ في الخادم — حاول مرة أخرى" });
+    return res.status(401).json({ error: "توكن غير صالح أو منتهي الصلاحية" });
   }
-});
+};
 
-// ── POST /api/auth/admin — دخول المدير العام ─────────────────────────────────
-router.post("/admin", async (req: Request, res: Response) => {
-  try {
-    const { email, password } = req.body as { email: string; password: string };
-    const adminEmail = process.env["SUPER_ADMIN_EMAIL"] || "superadmin@sowwanjo.online";
-    const adminPass  = process.env["SUPER_ADMIN_PASSWORD"];
-
-    // نقبل: الإيميل الكامل أو "superadmin" فقط
-    const adminUsername = adminEmail.split("@")[0]; // "superadmin"
-    const emailMatch = email === adminEmail || email === adminUsername;
-    const passMatch  = password === adminPass;
-
-    if (!email || !password || !emailMatch || !passMatch) {
-      return res.status(401).json({ error: "بيانات المدير العام غير صحيحة" });
-    }
-
-    const token = jwt.sign(
-      { isSuperAdmin: true, email },
-      secret(),
-      { expiresIn: expires() } as object
-    );
-
-    const augReq = req as AuthRequest;
-    augReq.isSuperAdmin = true;
-    logAudit({ req: augReq, action: "تسجيل دخول مدير عام", category: "login", target: email });
-
-    return res.json({ token, role: "superadmin" });
-  } catch (err) {
-    console.error("Admin login error:", err);
-    return res.status(500).json({ error: "خطأ في الخادم" });
+export const superAdminOnly = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.isSuperAdmin) {
+    return res.status(403).json({ error: "هذا المسار مخصص للمدير العام فقط" });
   }
-});
+  return next();
+};
 
-// ── GET /api/auth/me — بيانات المستخدم الحالي من Database ────────────────────
-router.get("/me", authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    if (req.isSuperAdmin) {
-      return res.json({ role: "superadmin", name: "المدير العام" });
-    }
-
-    if (!req.store) {
-      return res.status(401).json({ error: "غير مصرح" });
-    }
-
-    // جلب المستخدم من DB
-    const user = await User.findOne({ storeId: req.store.id, status: "active" }).select("-password");
-    const store = await Store.findById(req.store.id).select("-__v");
-
-    return res.json({
-      user: user ? { id: user._id, name: user.name, email: user.email, role: user.role } : null,
-      store: store ? {
-        id: store._id, nameAr: store.nameAr, nameEn: store.nameEn,
-        category: store.category, plan: store.plan, status: store.status,
-        vatRate: store.vatRate, currency: store.currency, language: store.language,
-        phone: store.phone, city: store.city, expiresAt: store.expiresAt,
-      } : null,
-    });
-  } catch (err) {
-    console.error("Me error:", err);
-    return res.status(500).json({ error: "خطأ في الخادم" });
-  }
-});
-
-export default router;
+// كل query مقيد بـ storeId — Multi-Tenant Safety
+export const scopeToStore = (req: AuthRequest): { storeId: string } => {
+  if (!req.store?.id) throw new Error("Store scope required — no store in request");
+  return { storeId: req.store.id };
+};
