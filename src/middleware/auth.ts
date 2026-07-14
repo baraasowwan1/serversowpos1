@@ -19,6 +19,7 @@ export interface AuthRequest extends Request {
   userId?:       string;
   userRole?:     string;
   isSuperAdmin?: boolean;
+  requestId?:    string;
 }
 
 export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -41,7 +42,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     }
 
     if (!decoded.storeId) {
-      return res.status(401).json({ error: "توكن غير صالح" });
+      return res.status(401).json({ success: false, code: "INVALID_TOKEN", error: "توكن غير صالح", requestId: req.requestId });
     }
 
     // تحقق من المتجر في Database
