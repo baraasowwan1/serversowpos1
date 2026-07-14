@@ -31,17 +31,25 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     items, subtotal, discountAmt, taxAmt, total, payMethod, cashIn, change,
     customerId, customerName, customerPhone,
     loyaltyPointsEarned, loyaltyPointsRedeemed,
+    cashierName, cashierId,
   } = req.body;
   if (!items?.length || !total) return res.status(400).json({ error: "بيانات الفاتورة ناقصة" });
 
   const count = await Sale.countDocuments({ storeId: scope.storeId });
   const invoiceNo = `INV-${new Date().getFullYear()}-${String(count + 1).padStart(6, "0")}`;
 
+  // Use cashierName from request body, or fall back to userId
+  const resolvedCashier = cashierName || req.userId || "";
+
   const sale = await Sale.create({
     storeId: scope.storeId, invoiceNo, items,
     subtotal, discountAmt, taxAmt, total,
     payMethod, cashIn, change, status: "completed",
     customerId, customerName, customerPhone,
+    loyaltyPointsEarned:   loyaltyPointsEarned || undefined,
+    loyaltyPointsRedeemed: loyaltyPointsRedeemed || undefined,
+    cashier:   resolvedCashier,
+    cashierId: cashierId || req.userId || undefined,
   });
 
   // خصم من المخزون تلقائياً
