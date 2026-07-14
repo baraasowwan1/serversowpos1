@@ -22,7 +22,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     shift: (u as { shift?: string }).shift || "flexible",
     shiftStart: (u as { shiftStart?: string }).shiftStart || "",
     shiftEnd: (u as { shiftEnd?: string }).shiftEnd || "",
-    branch: "",
+    branch: (u as { branchName?: string }).branchName || "",
     sales: 0,
   })));
 });
@@ -31,12 +31,14 @@ router.get("/", async (req: AuthRequest, res: Response) => {
 router.post("/", async (req: AuthRequest, res: Response) => {
   try {
     const scope = scopeToStore(req);
-    const { name, email, phone, role, password } = req.body;
+    const { name, email, phone, role, password, branch, shift, shiftStart, shiftEnd } = req.body;
     if (!name || !email) return res.status(400).json({ error: "الاسم والبريد مطلوبان" });
 
     // Validate role against schema enum to give a clear error instead of crashing
     const validRoles = ["owner", "manager", "cashier", "inventory", "accountant"];
     const safeRole = validRoles.includes(role) ? role : "cashier";
+    const validShifts = ["morning", "evening", "night", "flexible"];
+    const safeShift = validShifts.includes(shift) ? shift : "flexible";
 
     const exists = await User.findOne({ email: email.toLowerCase() });
     if (exists) return res.status(409).json({ error: "هذا البريد مستخدم بالفعل" });
@@ -49,6 +51,8 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       name, email: email.toLowerCase(), phone: phone || "",
       password: hashed,
       role: safeRole, status: "active",
+      branchName: branch || "",
+      shift: safeShift, shiftStart: shiftStart || "", shiftEnd: shiftEnd || "",
     });
 
     return res.status(201).json({
@@ -67,7 +71,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 router.put("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const scope = scopeToStore(req);
-    const { name, phone, role, status, password, shift, shiftStart, shiftEnd } = req.body;
+    const { name, phone, role, status, password, shift, shiftStart, shiftEnd, branch } = req.body;
     const validRoles = ["owner", "manager", "cashier", "inventory", "accountant"];
     const validStatuses = ["active", "suspended"];
     const validShifts = ["morning", "evening", "night", "flexible"];
@@ -77,6 +81,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
     if (shift) update["shift"] = validShifts.includes(shift) ? shift : "flexible";
     if (shiftStart !== undefined) update["shiftStart"] = shiftStart;
     if (shiftEnd !== undefined) update["shiftEnd"] = shiftEnd;
+    if (branch !== undefined) update["branchName"] = branch;
     if (password && typeof password === "string" && password.length >= 6) {
       update["password"] = await bcrypt.hash(password, 10);
     }
