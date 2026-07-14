@@ -69,15 +69,13 @@ router.put("/", async (req: AuthRequest, res: Response) => {
   );
 
   // Sync branding fields back to Store document for login response
-  const brandingUpdates: Record<string, string> = {};
-  if ("appName"      in updates) brandingUpdates["appName"]      = updates["appName"] as string;
-  if ("primaryColor" in updates) brandingUpdates["primaryColor"] = updates["primaryColor"] as string;
-  if ("logoUrl"      in updates) brandingUpdates["logoUrl"]      = updates["logoUrl"] as string;
-  if ("iconUrl"      in updates) brandingUpdates["iconUrl"]      = updates["iconUrl"] as string;
-  if ("receiptLogoUrl" in updates) brandingUpdates["receiptLogoUrl"] = updates["receiptLogoUrl"] as string;
-  if ("sidebarFeatures" in updates) {
-    brandingUpdates["sidebarFeatures"] = updates["sidebarFeatures"] as object;
-  }
+  const brandingUpdates: Record<string, unknown> = {};
+  if ("appName"         in updates) brandingUpdates["appName"]         = updates["appName"];
+  if ("primaryColor"    in updates) brandingUpdates["primaryColor"]    = updates["primaryColor"];
+  if ("logoUrl"         in updates) brandingUpdates["logoUrl"]         = updates["logoUrl"];
+  if ("iconUrl"         in updates) brandingUpdates["iconUrl"]         = updates["iconUrl"];
+  if ("receiptLogoUrl"  in updates) brandingUpdates["receiptLogoUrl"]  = updates["receiptLogoUrl"];
+  if ("sidebarFeatures" in updates) brandingUpdates["sidebarFeatures"] = updates["sidebarFeatures"];
   if (Object.keys(brandingUpdates).length > 0) {
     await Store.findByIdAndUpdate(scope.storeId, { $set: brandingUpdates });
   }
