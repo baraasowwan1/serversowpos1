@@ -80,6 +80,19 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
   } catch { res.status(500).json({ error: "فشل التعديل" }); }
 });
 
+// GET /api/coupons/check/:code — validate a coupon code (used at POS)
+router.get("/check/:code", async (req: AuthRequest, res: Response) => {
+  try {
+    const scope = scopeToStore(req);
+    const c = await Coupon.findOne({ storeId: scope.storeId, code: req.params["code"].toUpperCase() });
+    if (!c) return res.status(404).json({ error: "كود الكوبون غير موجود" });
+    if (!c.active) return res.status(400).json({ error: "هذا الكوبون غير نشط" });
+    if (c.maxUses > 0 && c.uses >= c.maxUses) return res.status(400).json({ error: "تجاوز الكوبون الحد الأقصى للاستخدام" });
+    if (c.exp && new Date() > new Date(c.exp)) return res.status(400).json({ error: "انتهت صلاحية الكوبون" });
+    return res.json({ id: c._id, code: c.code, type: c.type, value: c.value, desc: c.desc });
+  } catch { res.status(500).json({ error: "فشل التحقق من الكوبون" }); }
+});
+
 // DELETE /api/coupons/:id
 router.delete("/:id", async (req: AuthRequest, res: Response) => {
   try {
