@@ -83,6 +83,7 @@ import saStatsRoutes       from "./routes/sa-stats";
 import masterCatalogRoutes from "./routes/master-catalog";
 import purchaseOrderRoutes from "./routes/purchase-orders";
 import promotionRoutes     from "./routes/promotions";
+import giftCardRoutes      from "./routes/gift-cards";
 
 app.use("/api/auth",                   authRoutes);
 app.use("/api/stores",                 storeRoutes);
@@ -115,6 +116,7 @@ app.use("/api/super-admin/stats",      saStatsRoutes);
 app.use("/api/master-catalog",         masterCatalogRoutes);
 app.use("/api/purchase-orders",        purchaseOrderRoutes);
 app.use("/api/promotions",             promotionRoutes);
+app.use("/api/gift-cards",             giftCardRoutes);
 
 // ── Health Check ─────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({
