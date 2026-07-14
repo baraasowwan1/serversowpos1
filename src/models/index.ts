@@ -91,12 +91,15 @@ export interface IUser extends Document {
   shift?:     "morning" | "evening" | "night" | "flexible";
   shiftStart?: string;
   shiftEnd?:   string;
+  branchName?: string;
+  phone?:      string;
   createdAt:  Date;
   updatedAt:  Date;
 }
 const UserSchema = new Schema<IUser>({
   storeId:    { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
   branchId:   { type: Schema.Types.ObjectId, ref: "Branch", default: null },
+  branchName: { type: String, default: "" },
   name:       { type: String, required: true },
   email:      { type: String, required: true, unique: true, lowercase: true, trim: true },
   username:   { type: String, default: "" },
@@ -167,7 +170,7 @@ export interface ISale extends Document {
   cashIn?:     number; change?: number;
   cliqRef?:    string; cliqSender?: string; cardRef?: string;
   customerId?: string; customerName?: string; customerPhone?: string;
-  status:      "completed" | "refunded" | "held";
+  status:      "completed" | "refunded" | "held" | "voided";
   cashier?:    string; branchId?: string; terminalId?: string;
   // Offline sync fields
   offlineOperationId?: string;  // UUID for idempotency
@@ -184,7 +187,7 @@ const SaleSchema = new Schema<ISale>({
   cashIn:     Number, change: Number,
   cliqRef:    String, cliqSender: String, cardRef: String,
   customerId: String, customerName: String, customerPhone: String,
-  status:     { type: String, default: "completed", enum: ["completed","refunded","held"] },
+  status:     { type: String, default: "completed", enum: ["completed","refunded","held","voided"] },
   cashier:    String, branchId: String, terminalId: String,
   offlineOperationId: { type: String, index: true, sparse: true },
   isOffline:          { type: Boolean, default: false },
