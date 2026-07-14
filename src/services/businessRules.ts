@@ -120,7 +120,7 @@ export async function generateInvoiceNo(storeId: string, session?: ClientSession
   const rand = Math.random().toString(36).slice(2, 5).toUpperCase();
   const candidate = `INV-${year}-${ts}${rand}`;
   // Verify it doesn't exist (virtually impossible but ensures integrity)
-  const exists = await Sale.exists({ storeId, invoiceNo: candidate }, { session });
+  const exists = await Sale.exists({ storeId, invoiceNo: candidate });
   if (exists) {
     // Extremely rare: retry with different random
     return generateInvoiceNo(storeId, session);
