@@ -123,28 +123,29 @@ router.post("/login", async (req: Request, res: Response) => {
 // ── POST /api/auth/admin — دخول المدير العام ─────────────────────────────────
 router.post("/admin", async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body as { email: string; password: string };
+    const { username, email, password } = req.body as { username?: string; email?: string; password: string };
     const adminEmail = process.env["SUPER_ADMIN_EMAIL"] || "superadmin@sowwanjo.online";
     const adminPass  = process.env["SUPER_ADMIN_PASSWORD"];
 
-    // نقبل: الإيميل الكامل أو "superadmin" فقط
+    // نقبل: الإيميل الكامل أو "superadmin" فقط أو username
     const adminUsername = adminEmail.split("@")[0]; // "superadmin"
-    const emailMatch = email === adminEmail || email === adminUsername;
+    const inputCredential = username || email || "";
+    const emailMatch = inputCredential === adminEmail || inputCredential === adminUsername;
     const passMatch  = password === adminPass;
 
-    if (!email || !password || !emailMatch || !passMatch) {
+    if (!inputCredential || !password || !emailMatch || !passMatch) {
       return res.status(401).json({ error: "بيانات المدير العام غير صحيحة" });
     }
 
     const token = jwt.sign(
-      { isSuperAdmin: true, email },
+      { isSuperAdmin: true, email: adminEmail },
       secret(),
       { expiresIn: expires() } as object
     );
 
     const augReq = req as AuthRequest;
     augReq.isSuperAdmin = true;
-    logAudit({ req: augReq, action: "تسجيل دخول مدير عام", category: "login", target: email });
+    logAudit({ req: augReq, action: "تسجيل دخول مدير عام", category: "login", target: adminEmail });
 
     return res.json({ token, role: "superadmin" });
   } catch (err) {
