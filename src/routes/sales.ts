@@ -79,6 +79,44 @@ router.post("/", async (req: AuthRequest, res: Response) => {
   res.status(201).json(sale);
 });
 
+// إلغاء فاتورة (Void)
+router.patch("/:id/void", async (req: AuthRequest, res: Response) => {
+  try {
+    const scope = scopeToStore(req);
+    const sale = await Sale.findOne({ _id: req.params.id, storeId: scope.storeId });
+    if (!sale) return res.status(404).json({ error: "الفاتورة غير موجودة" });
+    if (sale.status === "voided") return res.status(400).json({ error: "الفاتورة ملغاة مسبقاً" });
+
+    sale.status = "voided";
+    await sale.save();
+
+    // إعادة المخزون
+    for (const item of sale.items) {
+      await Product.findOneAndUpdate(
+        { _id: item.productId, storeId: scope.storeId },
+        { $inc: { stock: item.qty } }
+      );
+    }
+
+    // إلغاء الدين عند الذمة
+    if (sale.payMethod === "credit" && sale.customerId) {
+      await Customer.findOneAndUpdate(
+        { _id: sale.customerId, storeId: scope.storeId },
+        { $inc: { debt: -sale.total, totalPurchases: -sale.total } }
+      );
+    } else if (sale.customerId) {
+      await Customer.findOneAndUpdate(
+        { _id: sale.customerId, storeId: scope.storeId },
+        { $inc: { totalPurchases: -sale.total } }
+      );
+    }
+
+    res.json({ success: true, sale });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message || "خطأ في إلغاء الفاتورة" });
+  }
+});
+
 // إحصائيات المبيعات
 router.get("/stats", async (req: AuthRequest, res: Response) => {
   try {
