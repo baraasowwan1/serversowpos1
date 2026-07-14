@@ -133,8 +133,8 @@ router.post("/", requirePermission("sales:create"), async (req: AuthRequest, res
 
       const resolvedCashier = cashierName || req.userId || "";
 
-      // 6. Create sale document
-      result = await Sale.create([{
+      // 6. Create sale document — Sale.create with session returns an array
+      const _created = await Sale.create([{
         storeId: scope.storeId,
         invoiceNo,
         items: items.map(i => ({
@@ -162,9 +162,7 @@ router.post("/", requirePermission("sales:create"), async (req: AuthRequest, res
         cashierId: cashierId || req.userId || undefined,
         status: "completed",
       }], { session });
-
-      // Sale.create with session returns an array
-      result = Array.isArray(result) ? result[0] : result;
+      result = (Array.isArray(_created) ? _created[0] : _created) as InstanceType<typeof Sale>;
 
       // 7. Deduct stock atomically
       await deductStock(scope.storeId, items.map(i => ({
