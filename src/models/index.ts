@@ -164,14 +164,16 @@ export const Product = mongoose.model<IProduct>("Product", ProductSchema);
 export interface ISale extends Document {
   storeId:     Types.ObjectId;
   invoiceNo:   string;
-  items:       { productId: string; nameAr: string; qty: number; unitPrice: number; discount: number; total: number }[];
+  items:       { productId: string; nameAr: string; qty: number; unitPrice: number; discount: number; taxRate?: number; taxAmt?: number; total: number }[];
   subtotal:    number; discountAmt: number; taxAmt: number; total: number;
   payMethod:   "cash" | "click" | "split" | "cliq" | "card" | "credit";
   cashIn?:     number; change?: number;
   cliqRef?:    string; cliqSender?: string; cardRef?: string;
   customerId?: string; customerName?: string; customerPhone?: string;
+  loyaltyPointsEarned?:   number;
+  loyaltyPointsRedeemed?: number;
   status:      "completed" | "refunded" | "held" | "voided";
-  cashier?:    string; branchId?: string; terminalId?: string;
+  cashier?:    string; cashierId?: string; branchId?: string; terminalId?: string;
   // Offline sync fields
   offlineOperationId?: string;  // UUID for idempotency
   isOffline?:          boolean;
@@ -180,15 +182,16 @@ export interface ISale extends Document {
 const SaleSchema = new Schema<ISale>({
   storeId:    { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
   invoiceNo:  { type: String, required: true },
-  items:      [{ productId: String, nameAr: String, qty: Number, unitPrice: Number, discount: Number, total: Number }],
+  items:      [{ productId: String, nameAr: String, qty: Number, unitPrice: Number, discount: Number, taxRate: Number, taxAmt: Number, total: Number }],
   subtotal:   Number, discountAmt: Number, taxAmt: Number,
   total:      { type: Number, required: true },
   payMethod:  { type: String, enum: ["cash","click","split","cliq","card","credit"], default: "cash" },
   cashIn:     Number, change: Number,
   cliqRef:    String, cliqSender: String, cardRef: String,
   customerId: String, customerName: String, customerPhone: String,
+  loyaltyPointsEarned: Number, loyaltyPointsRedeemed: Number,
   status:     { type: String, default: "completed", enum: ["completed","refunded","held","voided"] },
-  cashier:    String, branchId: String, terminalId: String,
+  cashier:    String, cashierId: String, branchId: String, terminalId: String,
   offlineOperationId: { type: String, index: true, sparse: true },
   isOffline:          { type: Boolean, default: false },
   offlineCreatedAt:   Date,
