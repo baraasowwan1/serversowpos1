@@ -13,10 +13,14 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import { runMigrations } from "./migrations/runner";
+import { requestIdMiddleware } from "./middleware/requestId";
 
 dotenv.config();
 
 const app = express();
+
+// ── Request ID — first middleware so every request gets a traceable ID ────────
+app.use(requestIdMiddleware);
 
 // ── Security Middleware ──────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -119,28 +123,49 @@ app.use("/api/promotions",             promotionRoutes);
 app.use("/api/gift-cards",             giftCardRoutes);
 
 // ── Health Check ─────────────────────────────────────────────────────────────
-app.get("/health", (_req, res) => res.json({
-  status: "ok",
-  service: "Sowwanjo POS API",
-  version: "1.0.0",
-  db: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
-  timestamp: new Date().toISOString(),
-}));
+const APP_VERSION = process.env["APP_VERSION"] || "1.0.0";
+app.get("/health", (_req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const dbStatus = dbState === 1 ? "connected" : dbState === 2 ? "connecting" : "disconnected";
+  res.json({
+    success: true,
+    status: dbState === 1 ? "ok" : "degraded",
+    service: "Sowwanjo POS API",
+    version: APP_VERSION,
+    db: dbStatus,
+    uptime: Math.floor(process.uptime()),
+    memory: process.memoryUsage().heapUsed,
+    timestamp: new Date().toISOString(),
+  });
+});
 
 app.get("/", (_req, res) => res.json({
   name: "Sowwanjo POS API",
-  version: "1.0.0",
+  version: APP_VERSION,
   domain: "pos.sowwanjo.online",
   status: "running",
 }));
 
 // ── 404 Handler ───────────────────────────────────────────────────────────────
-app.use((_req, res) => res.status(404).json({ error: "المسار غير موجود" }));
+app.use((req: express.Request, res: express.Response) => res.status(404).json({
+  success: false,
+  code: "NOT_FOUND",
+  message: "المسار غير موجود",
+  path: req.path,
+  requestId: (req as express.Request & { requestId?: string }).requestId,
+}));
 
-// ── Error Handler ─────────────────────────────────────────────────────────────
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ error: "حدث خطأ في الخادم — تحقق من السجلات" });
+// ── Global Error Handler ───────────────────────────────────────────────────────
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const reqId = (req as express.Request & { requestId?: string }).requestId;
+  // Log full error server-side but never expose stack trace to client
+  console.error(`[ERROR] requestId=${reqId} path=${req.path} method=${req.method}`, err.stack || err.message);
+  res.status(500).json({
+    success: false,
+    code: "INTERNAL_ERROR",
+    message: "حدث خطأ في الخادم — يرجى المحاولة مرة أخرى",
+    requestId: reqId,
+  });
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
