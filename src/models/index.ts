@@ -646,3 +646,31 @@ const PromotionSchema = new Schema<IPromotion>({
 }, { timestamps: true });
 PromotionSchema.index({ storeId: 1, active: 1, endDate: 1 });
 export const Promotion = mongoose.model<IPromotion>("Promotion", PromotionSchema);
+
+// ── GiftCard ──────────────────────────────────────────────────────────────────
+export interface IGiftCard extends Document {
+  storeId:     Types.ObjectId;
+  code:        string;
+  balance:     number;
+  originalBalance: number;
+  isActive:    boolean;
+  expiresAt?:  Date;
+  notes?:      string;
+  createdBy?:  string;
+  usedBy?:     string;
+  usedAt?:     Date;
+}
+const GiftCardSchema = new Schema<IGiftCard>({
+  storeId:         { type: Schema.Types.ObjectId, ref: "Store", required: true, index: true },
+  code:            { type: String, required: true, uppercase: true },
+  balance:         { type: Number, default: 0 },
+  originalBalance: { type: Number, default: 0 },
+  isActive:        { type: Boolean, default: true },
+  expiresAt:       { type: Date },
+  notes:           { type: String, default: "" },
+  createdBy:       { type: String, default: "" },
+  usedBy:          { type: String, default: "" },
+  usedAt:          { type: Date },
+}, { timestamps: true });
+GiftCardSchema.index({ storeId: 1, code: 1 }, { unique: true });
+export const GiftCard = mongoose.model<IGiftCard>("GiftCard", GiftCardSchema);
