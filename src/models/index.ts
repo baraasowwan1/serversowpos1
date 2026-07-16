@@ -124,6 +124,7 @@ export interface IProduct extends Document {
   brand?:         string;
   taxable:        boolean;
   taxRate:        number;   // 0 | 2 | 4 | 8 | 16  (percentage)
+  allowNegativeStock?: boolean;
   offData?:       object;
   masterCatalogRef?: Types.ObjectId;
   purchaseUnit?:  string; salesUnit?: string;
@@ -146,6 +147,7 @@ const ProductSchema = new Schema<IProduct>({
   brand:          { type: String, default: "" },
   taxable:        { type: Boolean, default: true },
   taxRate:        { type: Number, default: 0, enum: [0, 2, 4, 8, 16] },
+  allowNegativeStock: { type: Boolean, default: false },
   offData:        { type: Object, default: null },
   masterCatalogRef: { type: Schema.Types.ObjectId, ref: "MasterSupermarketProduct", default: null },
   purchaseUnit:   { type: String, default: "" },
