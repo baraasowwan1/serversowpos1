@@ -95,23 +95,18 @@ router.put("/:id", requirePermission("products:update"), async (req: AuthRequest
   }
 });
 
-// ── DELETE /:id — حذف ناعم (soft delete) ────────────────────────────────────
+// ── DELETE /:id — حذف ناعم دائماً (soft delete — لا حذف فعلي لأي منتج) ─────────
 router.delete("/:id", ownerOnly, async (req: AuthRequest, res: Response) => {
   try {
     const scope = scopeToStore(req);
     const id = req.params["id"];
-    // Check if product is referenced in any completed sale
-    const inUse = await Sale.exists({ storeId: scope.storeId, "items.productId": id, status: "completed" });
-    if (inUse) {
-      // Soft delete: mark inactive instead of removing
-      await Product.findOneAndUpdate(
-        { _id: id, storeId: scope.storeId },
-        { isActive: false, deletedBy: req.userId || undefined, deletedAt: new Date() }
-      );
-      return res.json({ success: true, message: "تم إخفاء المنتج (مرتبط بفواتير سابقة)" });
-    }
-    await Product.findOneAndDelete({ _id: id, storeId: scope.storeId });
-    logAudit({ req, action: "حذف منتج", category: "product", target: id });
+    const product = await Product.findOneAndUpdate(
+      { _id: id, storeId: scope.storeId, isActive: { $ne: false } },
+      { isActive: false, deletedBy: req.userId || "", deletedAt: new Date() },
+      { new: true }
+    );
+    if (!product) return errRes(res, req, 404, "NOT_FOUND", "المنتج غير موجود أو محذوف مسبقاً");
+    logAudit({ req, action: "حذف منتج", category: "product", target: product.nameAr });
     res.json({ success: true, message: "تم حذف المنتج" });
   } catch {
     return errRes(res, req, 500, "DELETE_ERROR", "خطأ في حذف المنتج");
