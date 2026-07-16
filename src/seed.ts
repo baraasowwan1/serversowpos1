@@ -119,9 +119,13 @@ async function seed() {
   await db.collection("users").createIndex({ email: 1 }, { unique: true });
   await db.collection("users").createIndex({ storeId: 1, email: 1 });
   await db.collection("users").createIndex({ storeId: 1, role: 1 });
+  await db.collection("users").createIndex({ storeId: 1, username: 1 }, { sparse: true });
+  await db.collection("users").createIndex({ storeId: 1, phone: 1 }, { sparse: true });
   await db.collection("products").createIndex({ storeId: 1, barcode: 1 });
   await db.collection("products").createIndex({ storeId: 1, sku: 1 });
+  await db.collection("products").createIndex({ storeId: 1, isActive: 1, category: 1 });
   await db.collection("sales").createIndex({ storeId: 1, createdAt: -1 });
+  await db.collection("sales").createIndex({ storeId: 1, invoiceNo: 1 }, { unique: true, sparse: true });
   await db.collection("customers").createIndex({ storeId: 1, phone: 1 });
   await db.collection("auditlogs").createIndex({ storeId: 1, createdAt: -1 });
   console.log("✅ Database indexes created");
