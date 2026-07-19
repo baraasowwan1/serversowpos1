@@ -102,7 +102,8 @@ const UserSchema = new Schema<IUser>({
   branchName: { type: String, default: "" },
   name:       { type: String, required: true },
   email:      { type: String, required: true, unique: true, lowercase: true, trim: true },
-  username:   { type: String, default: "" },
+  username:   { type: String, default: "", trim: true },
+  phone:      { type: String, default: "" },
   password:   { type: String, required: true },
   role:       { type: String, default: "owner", enum: ["owner","manager","cashier","inventory","accountant"] },
   status:     { type: String, default: "active", enum: ["active","suspended"] },
@@ -111,13 +112,14 @@ const UserSchema = new Schema<IUser>({
   shiftEnd:   { type: String, default: "" },
 }, { timestamps: true });
 UserSchema.index({ storeId: 1, email: 1 });
+UserSchema.index({ storeId: 1, username: 1 }, { sparse: true });
+UserSchema.index({ storeId: 1, phone: 1 }, { sparse: true });
 export const User = mongoose.model<IUser>("User", UserSchema);
 
 // ── Product ───────────────────────────────────────────────────────────────────
 export interface IProduct extends Document {
   storeId:        Types.ObjectId;
   nameAr:         string; nameEn: string; barcode: string; sku: string;
-  // Multiple barcodes — any barcode in this array resolves to this product
   barcodes:       string[];
   category:       string; costPrice: number; sellPrice: number;
   stock:          number; minStock: number; image: string; unit: string;
@@ -125,6 +127,12 @@ export interface IProduct extends Document {
   taxable:        boolean;
   taxRate:        number;   // 0 | 2 | 4 | 8 | 16  (percentage)
   allowNegativeStock?: boolean;
+  // Soft-delete & audit trail
+  isActive?:      boolean;
+  createdBy?:     string;
+  updatedBy?:     string;
+  deletedBy?:     string;
+  deletedAt?:     Date;
   offData?:       object;
   masterCatalogRef?: Types.ObjectId;
   purchaseUnit?:  string; salesUnit?: string;
@@ -135,7 +143,7 @@ const ProductSchema = new Schema<IProduct>({
   nameAr:         { type: String, required: true },
   nameEn:         { type: String, default: "" },
   barcode:        { type: String, default: "" },
-  barcodes:       [{ type: String }],   // additional / linked barcodes
+  barcodes:       [{ type: String }],
   sku:            { type: String, default: "" },
   category:       { type: String, default: "" },
   costPrice:      { type: Number, default: 0 },
@@ -148,6 +156,11 @@ const ProductSchema = new Schema<IProduct>({
   taxable:        { type: Boolean, default: true },
   taxRate:        { type: Number, default: 0, enum: [0, 2, 4, 8, 16] },
   allowNegativeStock: { type: Boolean, default: false },
+  isActive:       { type: Boolean, default: true, index: true },
+  createdBy:      { type: String, default: "" },
+  updatedBy:      { type: String, default: "" },
+  deletedBy:      { type: String, default: "" },
+  deletedAt:      { type: Date, default: null },
   offData:        { type: Object, default: null },
   masterCatalogRef: { type: Schema.Types.ObjectId, ref: "MasterSupermarketProduct", default: null },
   purchaseUnit:   { type: String, default: "" },
@@ -158,7 +171,7 @@ const ProductSchema = new Schema<IProduct>({
 ProductSchema.index({ storeId: 1, barcode: 1 });
 ProductSchema.index({ storeId: 1, barcodes: 1 });
 ProductSchema.index({ storeId: 1, sku: 1 });
-ProductSchema.index({ storeId: 1, category: 1, nameAr: 1 });
+ProductSchema.index({ storeId: 1, isActive: 1, category: 1, nameAr: 1 });
 ProductSchema.index({ masterCatalogRef: 1 }, { sparse: true });
 export const Product = mongoose.model<IProduct>("Product", ProductSchema);
 
