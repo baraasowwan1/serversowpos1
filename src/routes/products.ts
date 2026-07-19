@@ -95,6 +95,39 @@ router.put("/:id", requirePermission("products:update"), async (req: AuthRequest
   }
 });
 
+// ── PATCH /:id/stock — تعديل المخزون (إضافة / طرح / تعيين) ────────────────────
+router.patch("/:id/stock", requirePermission("inventory:update"), async (req: AuthRequest, res: Response) => {
+  try {
+    const scope = scopeToStore(req);
+    const id = req.params["id"];
+    const { qty, type } = req.body as { qty?: number; type?: "add" | "set" | "remove" };
+    const quantity = Number(qty);
+    if (isNaN(quantity)) return errRes(res, req, 400, "INVALID_QTY", "الكمية غير صالحة");
+
+    const product = await Product.findOne({ _id: id, storeId: scope.storeId });
+    if (!product) return errRes(res, req, 404, "NOT_FOUND", "المنتج غير موجود");
+
+    let newStock: number;
+    if (type === "set") {
+      newStock = quantity;
+    } else if (type === "remove") {
+      newStock = Math.max(0, (product.stock ?? 0) - quantity);
+    } else {
+      // "add" أو افتراضي
+      newStock = (product.stock ?? 0) + quantity;
+    }
+
+    product.stock = newStock;
+    product.updatedBy = req.userId || undefined;
+    await product.save();
+
+    logAudit({ req, action: "تعديل مخزون", category: "inventory", target: product.nameAr, details: { type, qty: quantity, newStock } });
+    res.json({ success: true, data: { stock: newStock, productId: id } });
+  } catch {
+    return errRes(res, req, 500, "STOCK_ERROR", "خطأ في تعديل المخزون");
+  }
+});
+
 // ── DELETE /:id — حذف ناعم دائماً (soft delete — لا حذف فعلي لأي منتج) ─────────
 router.delete("/:id", ownerOnly, async (req: AuthRequest, res: Response) => {
   try {
