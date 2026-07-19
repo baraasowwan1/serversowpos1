@@ -16,7 +16,6 @@ import mongoose from "mongoose";
 import { Store, User } from "../models/index";
 import { authMiddleware, superAdminOnly, AuthRequest } from "../middleware/auth";
 import { logAudit } from "./audit";
-import { initializeStoreFromCatalog } from "./master-catalog";
 
 const router = Router();
 router.use(authMiddleware, superAdminOnly);
@@ -136,23 +135,11 @@ router.post("/", async (req: Request, res: Response) => {
     console.log(`✅ Owner user created: ${user.email} (${user._id})`);
     logAudit({ req: req as AuthRequest, action: "إنشاء متجر", category: "store", target: store.nameAr, newValues: { plan, city } });
 
-    // Auto-initialize supermarket stores from Master Catalog
-    let catalogProductsAdded = 0;
-    if ((category || "").toLowerCase() === "supermarket") {
-      try {
-        catalogProductsAdded = await initializeStoreFromCatalog(store._id as mongoose.Types.ObjectId);
-        console.log(`✅ Catalog initialized: ${catalogProductsAdded} products added to store ${store._id}`);
-      } catch (catalogErr) {
-        console.error("⚠️  Catalog init failed (non-fatal):", catalogErr);
-      }
-    }
-
     return res.status(201).json({
       store: { ...store.toObject(), id: store._id.toString() },
       user:  { id: user._id, name: user.name, email: user.email, role: user.role },
-      generatedPassword: rawPassword,  // يُعرض مرة واحدة فقط للمدير العام
+      generatedPassword: rawPassword,
       loginUrl: "https://pos.sowwanjo.online",
-      catalogProductsAdded,
     });
   } catch (err) {
     console.error("Create store error:", err);
