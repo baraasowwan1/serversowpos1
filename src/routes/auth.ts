@@ -179,6 +179,9 @@ router.get("/me", authMiddleware, async (req: AuthRequest, res: Response) => {
         category: store.category, plan: store.plan, status: store.status,
         vatRate: store.vatRate, currency: store.currency, language: store.language,
         phone: store.phone, city: store.city, expiresAt: store.expiresAt,
+        sidebarFeatures: store.sidebarFeatures || {},
+        appName: store.appName || "", primaryColor: store.primaryColor || "",
+        logoUrl: store.logoUrl || "", iconUrl: store.iconUrl || "",
       } : null,
     });
   } catch (err) {
