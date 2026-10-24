@@ -88,6 +88,7 @@ import masterCatalogRoutes from "./routes/master-catalog";
 import purchaseOrderRoutes from "./routes/purchase-orders";
 import promotionRoutes     from "./routes/promotions";
 import giftCardRoutes      from "./routes/gift-cards";
+import subscriptionRequestRoutes from "./routes/subscription-requests";
 
 app.use("/api/auth",                   authRoutes);
 app.use("/api/stores",                 storeRoutes);
