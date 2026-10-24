@@ -83,7 +83,7 @@ router.get("/", async (_req: Request, res: Response) => {
 // هذا هو الـ endpoint الرئيسي — يحفظ في MongoDB دائماً
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { nameAr, nameEn, category, owner, email, phone, city, plan, taxNo } = req.body;
+    const { nameAr, nameEn, category, owner, email, phone, city, plan, taxNo, sidebarFeatures } = req.body;
 
     if (!nameAr || !email || !owner || !category) {
       return res.status(400).json({ error: "اسم المتجر، البريد، اسم المالك، والفئة مطلوبة" });
@@ -116,6 +116,7 @@ router.post("/", async (req: Request, res: Response) => {
       city: city || "",
       plan: plan || "مبتدئ",
       taxNo: taxNo || "",
+      sidebarFeatures: sidebarFeatures && typeof sidebarFeatures === "object" ? sidebarFeatures : {},
       status: "trial",
       expiresAt: new Date(Date.now() + 14 * 86400000),
     });
