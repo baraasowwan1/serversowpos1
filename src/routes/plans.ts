@@ -3,6 +3,18 @@ import { Plan } from "../models/index";
 import { authMiddleware, superAdminOnly, AuthRequest } from "../middleware/auth";
 
 const router = Router();
+
+// Public, read-only plans for the store registration / subscription page.
+// Keep this route before the super-admin middleware; plan mutations remain protected.
+router.get("/public", async (_req: Request, res: Response) => {
+  const plans = await Plan.find({ active: { $ne: false } })
+    .select("nameAr price yearlyPrice maxBranches maxUsers maxProducts maxInvoices maxTerminals storage apiAccess badge color features active")
+    .sort({ price: 1 })
+    .lean();
+  res.setHeader("Cache-Control", "no-store");
+  res.json(plans);
+});
+
 router.use(authMiddleware, superAdminOnly);
 
 router.get("/", async (_req: Request, res: Response) => {
