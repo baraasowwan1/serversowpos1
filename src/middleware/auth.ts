@@ -57,7 +57,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
 
     if (new Date(store.expiresAt) < new Date()) {
       await Store.findByIdAndUpdate(decoded.storeId, { status: "expired" });
-      return res.status(403).json({ error: "انتهت صلاحية اشتراك المتجر" });
+      return res.status(403).json({ success: false, code: "SUBSCRIPTION_EXPIRED", error: "انتهى اشتراك هذا المتجر ولم يتم تجديده بنجاح. يرجى التواصل مع صاحب المتجر أو الإدارة لتجديد الاشتراك.", storeName: store.nameAr || "" });
     }
 
     req.store    = { id: decoded.storeId, nameAr: store.nameAr, plan: store.plan, status: store.status };
