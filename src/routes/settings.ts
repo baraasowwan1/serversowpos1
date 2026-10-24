@@ -76,10 +76,16 @@ router.put("/", async (req: AuthRequest, res: Response) => {
   if ("iconUrl"         in updates) brandingUpdates["iconUrl"]         = updates["iconUrl"];
   if ("receiptLogoUrl"  in updates) brandingUpdates["receiptLogoUrl"]  = updates["receiptLogoUrl"];
   if ("sidebarFeatures" in updates) brandingUpdates["sidebarFeatures"] = updates["sidebarFeatures"];
+  // Keep fields used by the merchant shell in sync with the canonical Store document.
+  if ("storeName" in updates) brandingUpdates["nameAr"] = updates["storeName"];
+  if ("phone" in updates) brandingUpdates["phone"] = updates["phone"];
+  if ("language" in updates) brandingUpdates["language"] = updates["language"];
+  if ("taxRate" in updates) brandingUpdates["vatRate"] = updates["taxRate"];
   if (Object.keys(brandingUpdates).length > 0) {
     await Store.findByIdAndUpdate(scope.storeId, { $set: brandingUpdates });
   }
 
+  res.setHeader("Cache-Control", "no-store");
   res.json(settings);
 });
 
