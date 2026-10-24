@@ -56,7 +56,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     }
 
     const isRenewalRequest = req.method === "POST" && req.originalUrl.split("?")[0].endsWith("/api/subscription-requests/request");
-    if (new Date(store.expiresAt) < new Date() && !isRenewalRequest) {
+    if ((store.status === "expired" || new Date(store.expiresAt) < new Date()) && !isRenewalRequest) {
       await Store.findByIdAndUpdate(decoded.storeId, { status: "expired" });
       return res.status(403).json({ success: false, code: "SUBSCRIPTION_EXPIRED", error: "انتهى اشتراك هذا المتجر ولم يتم تجديده بنجاح. يرجى التواصل مع صاحب المتجر أو الإدارة لتجديد الاشتراك.", storeName: store.nameAr || "" });
     }
