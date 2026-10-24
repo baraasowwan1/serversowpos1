@@ -13,7 +13,7 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
-import { Store, User } from "../models/index";
+import { Store, User, Plan } from "../models/index";
 import { authMiddleware, superAdminOnly, AuthRequest } from "../middleware/auth";
 import { logAudit } from "./audit";
 
@@ -311,17 +311,33 @@ router.post("/:id/users/:uid/reset-password", async (req: Request, res: Response
 router.patch("/:id/assign-plan", async (req: Request, res: Response) => {
   try {
     const id = req.params["id"];
-    const { plan, months } = req.body;
+    const { plan, months } = req.body as { plan?: string; months?: number | string };
     const store = await Store.findById(id);
     if (!store) return res.status(404).json({ error: "المتجر غير موجود" });
 
-    if (plan) store.plan = plan;
-    const base = store.expiresAt && new Date(store.expiresAt) > new Date() ? new Date(store.expiresAt) : new Date();
-    const m = parseInt(months) || 1;
-    base.setMonth(base.getMonth() + m);
+    const duration = Number.parseInt(String(months), 10);
+    if (![1, 3, 6, 12].includes(duration)) {
+      return res.status(400).json({ error: "مدة التجديد غير صحيحة؛ اختر شهراً أو 3 أو 6 أو 12 شهراً" });
+    }
+    if (!plan || typeof plan !== "string") {
+      return res.status(400).json({ error: "يجب اختيار خطة اشتراك" });
+    }
+    const selectedPlan = await Plan.findOne({ nameAr: plan, active: { $ne: false } }).lean();
+    if (!selectedPlan) {
+      return res.status(400).json({ error: "خطة الاشتراك المحددة غير موجودة أو غير مفعلة" });
+    }
+
+    store.plan = selectedPlan.nameAr;
+    const now = new Date();
+    const currentExpiry = store.expiresAt ? new Date(store.expiresAt) : null;
+    const base = currentExpiry && !Number.isNaN(currentExpiry.getTime()) && currentExpiry > now
+      ? currentExpiry
+      : now;
+    base.setMonth(base.getMonth() + duration);
     store.expiresAt = base;
     store.status = "active";
     await store.save();
+    res.setHeader("Cache-Control", "no-store");
     return res.json({ ok: true, store: { ...store.toObject(), id: store._id.toString() } });
   } catch (err) {
     return res.status(500).json({ error: "خطأ في تعيين الخطة" });
