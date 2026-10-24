@@ -64,7 +64,7 @@ router.post("/login", async (req: Request, res: Response) => {
     }
     if (new Date(store.expiresAt) < new Date()) {
       await Store.findByIdAndUpdate(store._id, { status: "expired" });
-      return res.status(403).json({ error: "انتهت صلاحية اشتراك المتجر — يجب التجديد" });
+      return res.status(403).json({ error: "انتهى اشتراك هذا المتجر ولم يتم تجديده بنجاح. يرجى التواصل مع صاحب المتجر أو الإدارة لتجديد الاشتراك." , code: "SUBSCRIPTION_EXPIRED", storeName: store.nameAr || "" });
     }
 
     // 6. إنشاء JWT token
