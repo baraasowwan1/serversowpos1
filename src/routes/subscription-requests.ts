@@ -51,7 +51,7 @@ router.post("/request", authMiddleware, async (req: AuthRequest, res: Response) 
 router.get("/", authMiddleware, superAdminOnly, async (_req: AuthRequest, res: Response) => {
   try {
     const requests = await SubscriptionRequest.find().sort({ status: 1, createdAt: -1 }).limit(100).lean();
-    return res.json(requests.map((r: Record<string, unknown> & { _id: unknown }) => ({ ...r, id: String(r._id) })));
+    return res.json(requests.map(r => ({ ...r, id: String(r._id) })));
   } catch (err) {
     console.error("Subscription request list error:", err);
     return res.status(500).json({ error: "تعذر جلب طلبات التجديد" });
